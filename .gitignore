@@ -1,0 +1,20 @@
+# Ignore sensitive database and session cookies
+data/
+*.db
+*.sqlite3
+
+# Ignore logs
+logs/
+
+# Build and environment files
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.env
+
+# PyInstaller build artifacts
+dist/
+build/
+*.spec

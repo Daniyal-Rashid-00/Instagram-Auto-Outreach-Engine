@@ -1,0 +1,9 @@
+{
+  "delay_min": 45,
+  "delay_max": 60,
+  "daily_limit": 50,
+  "send_order": "sequential",
+  "schedule_enabled": false,
+  "schedule_start": "20:00",
+  "schedule_end": "23:00"
+}
