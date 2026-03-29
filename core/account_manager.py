@@ -22,13 +22,13 @@ class AccountManager:
         c.execute("SELECT * FROM accounts")
         return [dict(row) for row in c.fetchall()]
 
-    def add_account(self, username):
+    def add_account(self, username, proxy=''):
         c = self.conn.cursor()
         try:
             limit = self.settings.get('daily_limit', 50)
             c.execute(
-                "INSERT INTO accounts (username, daily_limit, dms_sent_today, status, last_reset) VALUES (?, ?, 0, 'Active', ?)",
-                (username, limit, datetime.now().strftime("%Y-%m-%d"))
+                "INSERT INTO accounts (username, daily_limit, dms_sent_today, status, last_reset, proxy) VALUES (?, ?, 0, 'Active', ?, ?)",
+                (username, limit, datetime.now().strftime("%Y-%m-%d"), proxy)
             )
             self.conn.commit()
             return True, c.lastrowid
@@ -36,6 +36,11 @@ class AccountManager:
             if 'UNIQUE constraint failed' in str(e):
                 return False, "Account already exists"
             return False, str(e)
+
+    def update_proxy(self, account_id, proxy):
+        c = self.conn.cursor()
+        c.execute("UPDATE accounts SET proxy = ? WHERE id = ?", (proxy, account_id))
+        self.conn.commit()
             
     def remove_account(self, account_id):
         c = self.conn.cursor()

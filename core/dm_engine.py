@@ -8,6 +8,11 @@ from datetime import datetime
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from playwright.sync_api import sync_playwright, TimeoutError
+try:
+    from playwright_stealth import stealth_sync
+    STEALTH_AVAILABLE = True
+except ImportError:
+    STEALTH_AVAILABLE = False
 
 from core.account_manager import AccountManager
 from core.queue_manager import QueueManager
@@ -54,14 +59,21 @@ class DMEngine(QThread):
         if min_s is None: min_s = self.settings.get("delay_min", 45)
         if max_s is None: max_s = self.settings.get("delay_max", 120)
         
-        delay = random.uniform(min_s, max_s)
+        if self.settings.get("use_gaussian_delays", False):
+            # Gaussian bell-curve: mean = midpoint, std = 1/6 of the range
+            mean = (min_s + max_s) / 2
+            std = (max_s - min_s) / 6
+            delay = max(min_s, min(max_s, random.gauss(mean, std)))
+        else:
+            delay = random.uniform(min_s, max_s)
+            
         self.log_signal.emit("INFO", f"Waiting {delay:.1f}s before next action...")
         
         # Non-blocking sleep for QThread
         slept = 0
         while slept < delay and self.is_running:
             while self.is_paused and self.is_running:
-                time.sleep(1) # check pause state every second
+                time.sleep(1)
             time.sleep(0.5)
             slept += 0.5
 
@@ -83,14 +95,17 @@ class DMEngine(QThread):
             
         return None
 
-    def _setup_browser(self, p, account_id):
+    def _setup_browser(self, p, account):
+        account_id = account['id'] if isinstance(account, dict) else account
+        proxy_str = account.get('proxy', '') if isinstance(account, dict) else ''
+        
         # Ensure profile folder exists
         profile_dir = Path(f'data/profiles/account_{account_id}')
         profile_dir.mkdir(parents=True, exist_ok=True)
         
-        context = p.chromium.launch_persistent_context(
+        launch_kwargs = dict(
             user_data_dir=str(profile_dir.absolute()),
-            channel="msedge", # Use Edge as specified in PRD
+            channel="msedge",
             headless=False,
             viewport={'width': 1280, 'height': 800},
             ignore_default_args=['--enable-automation'],
@@ -99,7 +114,24 @@ class DMEngine(QThread):
                 '--test-type'
             ]
         )
+        
+        # Inject proxy if configured for this account
+        if proxy_str and proxy_str.strip():
+            p_str = proxy_str.strip()
+            # Normalize: if no protocol prefix, add http://
+            if not p_str.startswith('http'):
+                p_str = 'http://' + p_str
+            launch_kwargs['proxy'] = {'server': p_str}
+            self.log_signal.emit("INFO", f"Using proxy: {p_str} for account {account_id}")
+        
+        context = p.chromium.launch_persistent_context(**launch_kwargs)
         page = context.pages[0] if context.pages else context.new_page()
+        
+        # Apply stealth scripts to hide automation fingerprints
+        if STEALTH_AVAILABLE:
+            stealth_sync(page)
+            self.log_signal.emit("INFO", "Browser stealth mode active")
+        
         return context, page
 
     def run(self):
@@ -120,7 +152,7 @@ class DMEngine(QThread):
                 self.log_signal.emit("INFO", f"Starting engine with account: {current_account['username']}")
                 self.account_switched_signal.emit(current_account['username'])
                 
-                context, page = self._setup_browser(p, current_account['id'])
+                context, page = self._setup_browser(p, current_account)
                 
                 # Verify login
                 page.goto("https://www.instagram.com/", timeout=60000)
@@ -249,7 +281,7 @@ class DMEngine(QThread):
                             current_account = next_acc
                             self.log_signal.emit("INFO", f"Switching to account {current_account['username']}")
                             self.account_switched_signal.emit(current_account['username'])
-                            context, page = self._setup_browser(p, current_account['id'])
+                            context, page = self._setup_browser(p, current_account)
                         
                     except Exception as e:
                         err_str = str(e)
@@ -274,7 +306,7 @@ class DMEngine(QThread):
                                 self.log_signal.emit("WARN", "All accounts blocked or exhausted.")
                                 break
                             current_account = next_acc
-                            context, page = self._setup_browser(p, current_account['id'])
+                            context, page = self._setup_browser(p, current_account)
                             
                     # Delay before next user
                     self._random_sleep()

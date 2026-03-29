@@ -9,6 +9,7 @@ from gui.messages import MessagesPanel
 from gui.settings import SettingsPanel
 from gui.logs import LogsPanel
 from gui.support import SupportPanel
+from gui.proxies import ProxiesPanel
 from core.dm_engine import DMEngine
 
 class MainWindow(QMainWindow):
@@ -75,7 +76,7 @@ class MainWindow(QMainWindow):
         
         # Navigation List
         self.nav_list = QListWidget()
-        nav_items = ["Dashboard", "Accounts", "Queue", "Message Pool", "Settings", "Logs", "Support"]
+        nav_items = ["Dashboard", "Accounts", "Proxies", "Queue", "Message Pool", "Settings", "Logs", "Support"]
         for it in nav_items:
             list_item = QListWidgetItem(it)
             self.nav_list.addItem(list_item)
@@ -98,6 +99,7 @@ class MainWindow(QMainWindow):
         # Initialize panels
         self.panel_dashboard = DashboardPanel(self)
         self.panel_accounts = AccountsPanel(self)
+        self.panel_proxies = ProxiesPanel(self)
         self.panel_queue = QueuePanel(self)
         self.panel_messages = MessagesPanel(self)
         self.panel_settings = SettingsPanel(self)
@@ -106,6 +108,7 @@ class MainWindow(QMainWindow):
         
         self.content_stack.addWidget(self.panel_dashboard)
         self.content_stack.addWidget(self.panel_accounts)
+        self.content_stack.addWidget(self.panel_proxies)
         self.content_stack.addWidget(self.panel_queue)
         self.content_stack.addWidget(self.panel_messages)
         self.content_stack.addWidget(self.panel_settings)
@@ -118,11 +121,11 @@ class MainWindow(QMainWindow):
 
     def change_page(self, index):
         self.content_stack.setCurrentIndex(index)
-        
-        # Refresh specific panes when navigated to
+        # Index map: 0=Dash,1=Accounts,2=Proxies,3=Queue,4=Messages,5=Settings,6=Logs,7=Support
         if index == 1: self.panel_accounts.refresh_table()
-        if index == 2: self.panel_queue.refresh_table()
-        if index == 5: self.panel_logs.refresh_table()
+        if index == 2: self.panel_proxies.refresh_table()
+        if index == 3: self.panel_queue.refresh_table()
+        if index == 6: self.panel_logs.refresh_table()
 
     # --- Engine Control Wrappers ---
     def start_engine(self):
@@ -160,6 +163,7 @@ class MainWindow(QMainWindow):
     def on_engine_finished(self):
         self.panel_dashboard.update_status("Session Completed / Stopped")
         self.panel_accounts.refresh_table()
+        self.panel_proxies.refresh_table()
         self.panel_queue.refresh_table()
         self.panel_logs.refresh_table()
 

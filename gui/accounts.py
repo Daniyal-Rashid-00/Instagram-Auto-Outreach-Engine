@@ -1,8 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QTableWidget, QTableWidgetItem, QHeaderView, QLabel,
-                             QInputDialog, QMessageBox)
+                             QTableWidget, QTableWidgetItem, QHeaderView, QLabel, QFrame)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from core.account_manager import AccountManager
+from gui.dialogs import dark_info, dark_warning, dark_question, dark_input
 import subprocess
 from pathlib import Path
 
@@ -63,13 +63,8 @@ class AccountsPanel(QWidget):
         self.btn_remove.setObjectName("btnDanger")
         self.btn_remove.clicked.connect(self.remove_selected)
         
-        # Helper label for manual login note
-        lbl_help = QLabel("Note: When adding, an Edge window will open. Login to Instagram manually, then close it.")
-        lbl_help.setObjectName("subHeader")
-        
         tools_layout.addWidget(self.btn_add)
         tools_layout.addWidget(self.btn_remove)
-        tools_layout.addWidget(lbl_help)
         tools_layout.addStretch()
         
         layout.addLayout(tools_layout)
@@ -84,6 +79,26 @@ class AccountsPanel(QWidget):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         
         layout.addWidget(self.table)
+        
+        # Info note card at the bottom
+        note_card = QFrame()
+        note_card.setObjectName("card")
+        note_layout = QHBoxLayout(note_card)
+        note_layout.setContentsMargins(16, 12, 16, 12)
+        note_icon = QLabel("ℹ")
+        note_icon.setStyleSheet("color: #58A6FF; font-size: 16px; font-weight: bold;")
+        note_icon.setFixedWidth(20)
+        note_text = QLabel(
+            "When you click Add New Account, a Microsoft Edge browser window will open automatically. "
+            "Log into your Instagram account inside that window, then close it. "
+            "The session will be saved and the engine can use that account from now on."
+        )
+        note_text.setObjectName("subHeader")
+        note_text.setWordWrap(True)
+        note_layout.addWidget(note_icon)
+        note_layout.addWidget(note_text)
+        layout.addWidget(note_card)
+        
         self.setLayout(layout)
         
     def refresh_table(self):
@@ -113,25 +128,22 @@ class AccountsPanel(QWidget):
             self.table.setItem(row, 4, limit_item)
 
     def add_account(self):
-        text, ok = QInputDialog.getText(self, 'Add Account', 'Enter exact Instagram Username:')
+        text, ok = dark_input(self, 'Add Account', 'Enter exact Instagram Username:', placeholder='e.g. john_doe_official')
         if ok and text:
             success, result = self.account_manager.add_account(text)
             if success:
-                QMessageBox.information(self, "Manual Login Required", 
-                    f"Account added. A browser will now open. Please login to {text} and close the browser when done. The app will be usable while it's open.")
-                
-                # Launch playwright in a background thread to prevent UI freeze
+                dark_info(self, "Manual Login Required",
+                    f"Account added. A browser will now open.\nPlease log into '{text}' and close the browser when done.\nThe app remains usable while it's open.")
                 self.login_worker = LoginWorker(result)
                 self.login_worker.finished_signal.connect(self.on_login_finished)
                 self.login_worker.start()
-                
             else:
-                QMessageBox.warning(self, "Error", result)
+                dark_warning(self, "Error", result)
                 self.refresh_table()
 
     def on_login_finished(self, success, error_msg):
         if not success:
-            QMessageBox.warning(self, "Browser Error", f"Failed to launch browser: {error_msg}")
+            dark_warning(self, "Browser Error", f"Failed to launch browser:\n{error_msg}")
         self.refresh_table()
 
     def remove_selected(self):
@@ -141,9 +153,6 @@ class AccountsPanel(QWidget):
             
         row = selected[0].row()
         acc_id = int(self.table.item(row, 0).text())
-        confirm = QMessageBox.question(self, "Remove Account", "Are you sure? This will delete the session data too.",
-                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        
-        if confirm == QMessageBox.StandardButton.Yes:
+        if dark_question(self, "Remove Account", "Are you sure? This will permanently delete the session data for this account."):
             self.account_manager.remove_account(acc_id)
             self.refresh_table()

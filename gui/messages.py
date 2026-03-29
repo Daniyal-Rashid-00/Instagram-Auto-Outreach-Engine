@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QTextEdit, QScrollArea, QMessageBox)
+                             QLabel, QTextEdit, QScrollArea)
 from PyQt6.QtCore import Qt
 import json
 from pathlib import Path
+from gui.dialogs import dark_warning, dark_info
 
 class MessagesPanel(QWidget):
     def __init__(self, main_window):
@@ -22,8 +23,9 @@ class MessagesPanel(QWidget):
         main_layout.addWidget(header)
         
         help_lbl = QLabel(
-            "Add up to 10 messages. The engine will pick one randomly for each DM to avoid spam filters.\n"
-            "Use {username} in your message and it will be replaced with the exact target handle."
+            "Add up to 10 messages. The engine will pick one randomly for each target.\n"
+            "Use {username} to insert the exact target handle.\n"
+            "Advanced (Spintax): Use {Option1|Option2} to randomize words (e.g. {Hey|Hi|Hello} there!)"
         )
         help_lbl.setObjectName("subHeader")
         main_layout.addWidget(help_lbl)
@@ -33,11 +35,16 @@ class MessagesPanel(QWidget):
         self.btn_add = QPushButton("Add Message Slot +")
         self.btn_add.clicked.connect(self.add_slot)
         
+        self.btn_spintax = QPushButton("Insert {Hey|Hi} Template")
+        self.btn_spintax.setObjectName("btnWarning")
+        self.btn_spintax.clicked.connect(self.insert_spintax_at_cursor)
+        
         self.btn_save = QPushButton("Save All Messages")
         self.btn_save.setObjectName("btnSuccess")
         self.btn_save.clicked.connect(self.save_messages)
         
         tools_layout.addWidget(self.btn_add)
+        tools_layout.addWidget(self.btn_spintax)
         tools_layout.addWidget(self.btn_save)
         tools_layout.addStretch()
         main_layout.addLayout(tools_layout)
@@ -71,7 +78,7 @@ class MessagesPanel(QWidget):
         if content is False or content is None:
             content = ""
         if len(self.text_boxes) >= 10:
-            QMessageBox.warning(self, "Limit Reached", "You can only have up to 10 message templates.")
+            dark_warning(self, "Limit Reached", "You can only have up to 10 message templates.")
             return
             
         row_widget = QWidget()
@@ -94,6 +101,28 @@ class MessagesPanel(QWidget):
         self.messages_layout.addWidget(row_widget)
         self.text_boxes.append(txt)
         
+    def insert_spintax_at_cursor(self):
+        """Insert a spintax greeting template at the cursor of the focused text box.
+        If no text box is focused, inserts into the last one. If none exist, creates a new slot."""
+        template = "{Hey|Hi|Hello} {username}, I noticed your profile and wanted to connect!"
+        
+        focused = None
+        for txt in self.text_boxes:
+            if txt.hasFocus():
+                focused = txt
+                break
+        
+        # Fall back to last text box if none focused
+        if focused is None and self.text_boxes:
+            focused = self.text_boxes[-1]
+        
+        if focused is None:
+            # No slots exist yet — create one with the template
+            self.add_slot(template)
+            return
+        
+        focused.insertPlainText(template)
+
     def remove_slot(self, widget, txt_obj):
         widget.deleteLater()
         if txt_obj in self.text_boxes:
@@ -102,9 +131,11 @@ class MessagesPanel(QWidget):
             
     def update_preview(self):
         if self.text_boxes:
-            # Just preview the first one for simplicity
+            # Just preview the first one for simplicity, processing basic spintax for visual feedback
+            from core.message_builder import process_spintax
             text = self.text_boxes[0].toPlainText()
-            self.preview_box.setText(text.replace("{username}", "john_doe"))
+            resolved = process_spintax(text)
+            self.preview_box.setText(resolved.replace("{username}", "john_doe"))
         else:
             self.preview_box.setText("...")
             
@@ -125,17 +156,16 @@ class MessagesPanel(QWidget):
     def save_messages(self):
         msgs = [txt.toPlainText().strip() for txt in self.text_boxes if txt.toPlainText().strip()]
         if not msgs:
-             QMessageBox.warning(self, "Error", "You must have at least one valid message.")
+             dark_warning(self, "Validation Error", "You must have at least one valid message before saving.")
              return
              
         for m in msgs:
             if len(m) > 1000:
-                QMessageBox.warning(self, "Error", "One of your messages exceeds the 1000 character limit.")
+                dark_warning(self, "Validation Error", "One of your messages exceeds the 1000 character limit.")
                 return
                 
-        # Save to json
         Path('config').mkdir(exist_ok=True)
         with open('config/messages.json', 'w', encoding='utf-8') as f:
             json.dump({"messages": msgs}, f, indent=2)
             
-        QMessageBox.information(self, "Success", "Messages saved successfully!")
+        dark_info(self, "Saved", f"{len(msgs)} message template(s) saved successfully.")

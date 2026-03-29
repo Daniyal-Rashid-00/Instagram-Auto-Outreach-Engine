@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QTextEdit, QFileDialog, QMessageBox, QTableWidget, QTableWidgetItem, QHeaderView)
+                             QLabel, QTextEdit, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView)
 from PyQt6.QtCore import Qt
 from datetime import datetime
 from data.db import get_connection
+from gui.dialogs import dark_info, dark_warning
 
 class LogsPanel(QWidget):
     def __init__(self, main_window):
@@ -98,6 +99,6 @@ class LogsPanel(QWidget):
                 writer.writerow(["Timestamp", "Username", "Account ID"])
                 for row in rows:
                     writer.writerow([row['sent_at'], row['username'], row['account_id']])
-            QMessageBox.information(self, "Exported", f"Successfully exported {len(rows)} records.")
+            dark_info(self, "Export Complete", f"Successfully exported {len(rows)} records to CSV.")
         except Exception as e:
-            QMessageBox.warning(self, "Error", str(e))
+            dark_warning(self, "Export Failed", str(e))

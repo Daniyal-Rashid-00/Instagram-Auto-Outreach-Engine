@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QTableWidget, QTableWidgetItem, QHeaderView, QLabel,
-                             QLineEdit, QFileDialog, QMessageBox, QMenu)
+                             QLineEdit, QFileDialog, QMenu)
 from PyQt6.QtCore import Qt
 from core.queue_manager import QueueManager
+from gui.dialogs import dark_info, dark_warning, dark_question, dark_input
 
 class QueuePanel(QWidget):
     def __init__(self, main_window):
@@ -27,11 +28,20 @@ class QueuePanel(QWidget):
         self.btn_import = QPushButton("Import TXT File")
         self.btn_import.clicked.connect(self.import_txt)
         
-        self.btn_clear = QPushButton("Clear Queue")
+        self.btn_edit = QPushButton("Edit Selected")
+        self.btn_edit.clicked.connect(self.edit_selected)
+        
+        self.btn_delete = QPushButton("Delete Selected")
+        self.btn_delete.setObjectName("btnDanger")
+        self.btn_delete.clicked.connect(self.delete_selected)
+        
+        self.btn_clear = QPushButton("Clear All")
         self.btn_clear.setObjectName("btnDanger")
         self.btn_clear.clicked.connect(self.clear_queue)
         
         tools_layout.addWidget(self.btn_import)
+        tools_layout.addWidget(self.btn_edit)
+        tools_layout.addWidget(self.btn_delete)
         tools_layout.addWidget(self.btn_clear)
         tools_layout.addStretch()
         
@@ -93,17 +103,41 @@ class QueuePanel(QWidget):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open TXT File", "", "Text Files (*.txt);;All Files (*)")
         if file_name:
             added, dups, filtered = self.queue_manager.import_txt(file_name)
-            QMessageBox.information(self, "Import Complete", 
-                f"Import Results:\n- Added: {added}\n- Duplicates removed: {dups}\n- Skipped (Blacklist/Already Sent): {filtered}")
+            dark_info(self, "Import Complete",
+                f"Import Results:\n\n  Added:    {added}\n  Duplicates removed:    {dups}\n  Skipped (blacklist/sent):    {filtered}")
             self.refresh_table()
             
     def clear_queue(self):
-        confirm = QMessageBox.question(self, "Clear Queue", "Are you sure you want to delete the ENTIRE queue?",
-                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if confirm == QMessageBox.StandardButton.Yes:
+        if dark_question(self, "Clear Queue", "Are you sure you want to permanently delete the entire queue?"):
             self.queue_manager.clear()
             self.refresh_table()
             
+    def edit_selected(self):
+        selected = self.table.selectedItems()
+        if not selected:
+            dark_warning(self, "No Selection", "Please select a row to edit.")
+            return
+        row = selected[0].row()
+        q_id = int(self.table.item(row, 0).text())
+        current_user = self.table.item(row, 1).text()
+        
+        new_user, ok = dark_input(self, 'Edit Username', f'Edit username for entry #{q_id}:', text=current_user)
+        if ok and new_user.strip() and new_user.strip() != current_user:
+            self.queue_manager.update_username(q_id, new_user.strip())
+            self.refresh_table()
+
+    def delete_selected(self):
+        selected = self.table.selectedItems()
+        if not selected:
+            dark_warning(self, "No Selection", "Please select a row to delete.")
+            return
+        row = selected[0].row()
+        q_id = int(self.table.item(row, 0).text())
+        username = self.table.item(row, 1).text()
+        if dark_question(self, "Delete Entry", f"Remove '{username}' from the queue?"):
+            self.queue_manager.remove(q_id)
+            self.refresh_table()
+
     def add_manual(self):
         username = self.txt_manual.text()
         success, msg = self.queue_manager.add_single(username)
@@ -111,7 +145,7 @@ class QueuePanel(QWidget):
             self.txt_manual.clear()
             self.refresh_table()
         else:
-            QMessageBox.warning(self, "Error", msg)
+            dark_warning(self, "Error", msg)
 
     def show_context_menu(self, pos):
         item = self.table.itemAt(pos)

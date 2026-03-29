@@ -93,6 +93,11 @@ class QueueManager:
         c = self.conn.cursor()
         c.execute("UPDATE queue SET status = ?, error_msg = ? WHERE id = ?", (status, error_msg, queue_id))
         self.conn.commit()
+
+    def update_username(self, queue_id, new_username):
+        c = self.conn.cursor()
+        c.execute("UPDATE queue SET username = ? WHERE id = ?", (new_username, queue_id))
+        self.conn.commit()
         
     def log_sent(self, username, account_id, message):
         c = self.conn.cursor()
