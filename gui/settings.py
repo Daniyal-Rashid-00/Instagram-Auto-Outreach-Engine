@@ -18,23 +18,21 @@ class SettingsPanel(QWidget):
         main_layout.setSpacing(25)
         
         header = QLabel("Engine Settings")
-        header.setStyleSheet("font-size: 24px; font-weight: bold;")
+        header.setObjectName("headerTitle")
         main_layout.addWidget(header)
         
         # Delay Group
         delay_group = QGroupBox("Anti-Ban Delays")
-        delay_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 16px; margin-top: 15px; }")
         delay_layout = QVBoxLayout()
         
         help_lbl = QLabel("Random delay injected between each DM to simulate human behavior.")
-        help_lbl.setStyleSheet("color: #a3a3a3; font-weight: normal; font-size: 14px;")
+        help_lbl.setObjectName("subHeader")
         delay_layout.addWidget(help_lbl)
         
         min_layout = QHBoxLayout()
         min_layout.addWidget(QLabel("Minimum Delay (seconds):"))
         self.spin_min = QSpinBox()
         self.spin_min.setRange(10, 600)
-        self.spin_min.setStyleSheet("padding: 5px;")
         min_layout.addWidget(self.spin_min)
         min_layout.addStretch()
         
@@ -42,7 +40,6 @@ class SettingsPanel(QWidget):
         max_layout.addWidget(QLabel("Maximum Delay (seconds):"))
         self.spin_max = QSpinBox()
         self.spin_max.setRange(10, 1200)
-        self.spin_max.setStyleSheet("padding: 5px;")
         max_layout.addWidget(self.spin_max)
         max_layout.addStretch()
         
@@ -53,12 +50,10 @@ class SettingsPanel(QWidget):
         
         # Account Group
         acc_group = QGroupBox("Account Limits")
-        acc_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 16px; margin-top: 15px; }")
         acc_layout = QHBoxLayout()
         acc_layout.addWidget(QLabel("Daily DM Limit per account:"))
         self.spin_limit = QSpinBox()
         self.spin_limit.setRange(5, 500)
-        self.spin_limit.setStyleSheet("padding: 5px;")
         acc_layout.addWidget(self.spin_limit)
         acc_layout.addStretch()
         acc_group.setLayout(acc_layout)
@@ -66,7 +61,6 @@ class SettingsPanel(QWidget):
         
         # Order Group
         order_group = QGroupBox("Queue Processing Order")
-        order_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 16px; margin-top: 15px; }")
         order_layout = QHBoxLayout()
         self.radio_seq = QRadioButton("Sequential (Top to Bottom)")
         self.radio_rand = QRadioButton("Randomized")
@@ -81,7 +75,6 @@ class SettingsPanel(QWidget):
         
         # Scheduling Group
         sched_group = QGroupBox("Scheduling Windows")
-        sched_group.setStyleSheet("QGroupBox { font-weight: bold; font-size: 16px; margin-top: 15px; }")
         sched_layout = QVBoxLayout()
         
         self.chk_schedule = QCheckBox("Enable Scheduling")
@@ -105,7 +98,7 @@ class SettingsPanel(QWidget):
         
         # Save Button
         self.btn_save = QPushButton("Save Settings")
-        self.btn_save.setStyleSheet("background-color: #059669; color: white; border: none; padding: 15px; border-radius: 4px; font-weight: bold;")
+        self.btn_save.setObjectName("btnSuccess")
         self.btn_save.clicked.connect(self.save_settings)
         main_layout.addWidget(self.btn_save)
         

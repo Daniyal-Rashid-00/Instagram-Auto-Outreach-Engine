@@ -18,18 +18,17 @@ class QueuePanel(QWidget):
         layout.setSpacing(15)
         
         header = QLabel("Target Queue")
-        header.setStyleSheet("font-size: 24px; font-weight: bold;")
+        header.setObjectName("headerTitle")
         layout.addWidget(header)
         
         # Tools layout
         tools_layout = QHBoxLayout()
         
         self.btn_import = QPushButton("Import TXT File")
-        self.btn_import.setStyleSheet("background-color: #4F46E5; color: white; border: none; padding: 10px; border-radius: 4px;")
         self.btn_import.clicked.connect(self.import_txt)
         
         self.btn_clear = QPushButton("Clear Queue")
-        self.btn_clear.setStyleSheet("background-color: #DC2626; color: white; border: none; padding: 10px; border-radius: 4px;")
+        self.btn_clear.setObjectName("btnDanger")
         self.btn_clear.clicked.connect(self.clear_queue)
         
         tools_layout.addWidget(self.btn_import)
@@ -40,10 +39,9 @@ class QueuePanel(QWidget):
         add_layout = QHBoxLayout()
         self.txt_manual = QLineEdit()
         self.txt_manual.setPlaceholderText("Enter single Instagram username...")
-        self.txt_manual.setStyleSheet("padding: 10px; background-color: #2b2b2b; color: white; border-radius: 4px;")
         
         self.btn_add_manual = QPushButton("Add to Queue")
-        self.btn_add_manual.setStyleSheet("background-color: #059669; color: white; border: none; padding: 10px; border-radius: 4px;")
+        self.btn_add_manual.setObjectName("btnSuccess")
         self.btn_add_manual.clicked.connect(self.add_manual)
         
         add_layout.addWidget(self.txt_manual)
@@ -57,17 +55,11 @@ class QueuePanel(QWidget):
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(["ID", "Username", "Status", "Timestamp"])
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.show_context_menu)
-        
-        # Dark theme table styles
-        self.table.setStyleSheet("""
-            QTableWidget { background-color: #1e1e1e; color: #fff; gridline-color: #333; }
-            QHeaderView::section { background-color: #2b2b2b; color: #fff; padding: 4px; }
-            QTableWidget::item:selected { background-color: #4F46E5; }
-        """)
         
         layout.addWidget(self.table)
         self.setLayout(layout)

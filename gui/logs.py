@@ -16,12 +16,12 @@ class LogsPanel(QWidget):
         main_layout.setContentsMargins(20, 20, 20, 20)
         
         header = QLabel("Engine Session Logs")
-        header.setStyleSheet("font-size: 24px; font-weight: bold;")
+        header.setObjectName("headerTitle")
         main_layout.addWidget(header)
         
         tools_layout = QHBoxLayout()
         self.btn_export = QPushButton("Export Log to CSV")
-        self.btn_export.setStyleSheet("background-color: #4F46E5; color: white; border: none; padding: 10px; border-radius: 4px;")
+        self.btn_export.setObjectName("btnSuccess")
         self.btn_export.clicked.connect(self.export_csv)
         self.btn_clear = QPushButton("Clear Live Log")
         self.btn_clear.clicked.connect(lambda: self.log_box.clear())
@@ -32,30 +32,25 @@ class LogsPanel(QWidget):
         
         # Live log box
         lbl_live = QLabel("Active Session Live Log")
-        lbl_live.setStyleSheet("font-weight: bold;")
+        lbl_live.setObjectName("subHeader")
         main_layout.addWidget(lbl_live)
         
         self.log_box = QTextEdit()
         self.log_box.setReadOnly(True)
-        self.log_box.setStyleSheet("""
-            background-color: #1e1e1e; color: #a3a3a3; font-family: Consolas, monospace; border-radius: 4px; padding: 10px;
-        """)
+        self.log_box.setStyleSheet("font-family: Consolas, monospace;")
         main_layout.addWidget(self.log_box)
         
         # Sent DB Log Table
         lbl_history = QLabel("Sent Messages History")
-        lbl_history.setStyleSheet("font-weight: bold; margin-top: 15px;")
+        lbl_history.setObjectName("subHeader")
         main_layout.addWidget(lbl_history)
         
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["Timestamp", "Target Username", "Account ID Used"])
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.setStyleSheet("""
-            QTableWidget { background-color: #1e1e1e; color: #fff; gridline-color: #333; }
-            QHeaderView::section { background-color: #2b2b2b; color: #fff; padding: 4px; }
-        """)
         main_layout.addWidget(self.table)
         
         self.setLayout(main_layout)

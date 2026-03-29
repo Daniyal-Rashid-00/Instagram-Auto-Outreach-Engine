@@ -14,52 +14,25 @@ class DashboardPanel(QWidget):
         
         # Header
         header = QLabel("Dashboard")
-        header.setStyleSheet("font-size: 24px; font-weight: bold;")
+        header.setObjectName("headerTitle")
         layout.addWidget(header)
         
         # Controls Group
         controls_frame = QFrame()
-        controls_frame.setStyleSheet("""
-            QFrame {
-                background-color: #2b2b2b;
-                border-radius: 8px;
-            }
-            QPushButton {
-                padding: 15px 30px;
-                font-size: 16px;
-                font-weight: bold;
-                border-radius: 4px;
-                color: white;
-                background-color: #4F46E5;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: #4338CA;
-            }
-            QPushButton[status="stop"] {
-                background-color: #DC2626;
-            }
-            QPushButton[status="stop"]:hover {
-                background-color: #B91C1C;
-            }
-            QPushButton[status="pause"] {
-                background-color: #D97706;
-            }
-            QPushButton[status="pause"]:hover {
-                background-color: #B45309;
-            }
-        """)
+        controls_frame.setObjectName("card")
         controls_layout = QHBoxLayout(controls_frame)
+        controls_layout.setContentsMargins(20, 20, 20, 20)
         
         self.btn_start = QPushButton("Start Engine")
+        self.btn_start.setObjectName("btnStart")
         self.btn_start.clicked.connect(self.main_window.start_engine)
         
-        self.btn_pause = QPushButton("Pause")
-        self.btn_pause.setProperty("status", "pause")
+        self.btn_pause = QPushButton("Pause Engine")
+        self.btn_pause.setObjectName("btnWarning")
         self.btn_pause.clicked.connect(self.main_window.pause_engine)
         
-        self.btn_stop = QPushButton("Stop")
-        self.btn_stop.setProperty("status", "stop")
+        self.btn_stop = QPushButton("Stop Engine")
+        self.btn_stop.setObjectName("btnDanger")
         self.btn_stop.clicked.connect(self.main_window.stop_engine)
         
         controls_layout.addWidget(self.btn_start)
@@ -82,7 +55,7 @@ class DashboardPanel(QWidget):
         
         # Status Log summary
         self.lbl_status = QLabel("Engine Status: Stopped")
-        self.lbl_status.setStyleSheet("font-size: 14px; color: #a3a3a3; padding: 10px; background: #222; border-radius: 4px;")
+        self.lbl_status.setStyleSheet("font-size: 14px; font-weight: bold; color: #818CF8; padding: 15px; background: #1E293B; border-radius: 8px; border: 1px solid #334155;")
         self.lbl_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.lbl_status)
         
@@ -91,20 +64,15 @@ class DashboardPanel(QWidget):
         
     def _create_stat_card(self, title, initial_value):
         frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: #2b2b2b;
-                border-radius: 8px;
-                padding: 15px;
-            }
-        """)
+        frame.setObjectName("card")
         layout = QVBoxLayout(frame)
+        layout.setContentsMargins(20, 20, 20, 20)
         
         lbl_title = QLabel(title)
-        lbl_title.setStyleSheet("color: #a3a3a3; font-size: 14px;")
+        lbl_title.setObjectName("subHeader")
         
         lbl_value = QLabel(initial_value)
-        lbl_value.setStyleSheet("color: white; font-size: 24px; font-weight: bold;")
+        lbl_value.setStyleSheet("color: white; font-size: 32px; font-weight: 900;")
         
         layout.addWidget(lbl_title)
         layout.addWidget(lbl_value)

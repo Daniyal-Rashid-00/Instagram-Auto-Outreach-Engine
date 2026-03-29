@@ -8,13 +8,15 @@ from gui.queue_panel import QueuePanel
 from gui.messages import MessagesPanel
 from gui.settings import SettingsPanel
 from gui.logs import LogsPanel
+from gui.support import SupportPanel
 from core.dm_engine import DMEngine
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("CyberSolu DM Engine — by Daniyal Rashid")
-        self.setMinimumSize(1000, 700)
+        self.setWindowTitle("CyberSolu DM Engine")
+        self.setWindowIcon(QIcon("icon.ico"))
+        self.setMinimumSize(1050, 750)
         
         # Engine Thread
         self.engine = DMEngine()
@@ -27,15 +29,13 @@ class MainWindow(QMainWindow):
         self._init_ui()
         
     def _init_ui(self):
-        # Apply dark theme stylesheet globally
-        self.setStyleSheet("""
-            QMainWindow, QWidget#main_content { background-color: #121212; color: #f3f4f6; font-family: 'Segoe UI', Arial, sans-serif; }
-            QListWidget { background-color: #1e1e1e; border: none; padding-top: 20px; outline: 0; }
-            QListWidget::item { padding: 15px 20px; color: #a3a3a3; font-size: 16px; font-weight: bold; border-left: 4px solid transparent; }
-            QListWidget::item:selected { background-color: #2b2b2b; color: #fff; border-left: 4px solid #4F46E5; }
-            QListWidget::item:hover:!selected { background-color: #222; color: #e5e7eb; }
-        """)
-        
+        # Apply premium dark theme globally
+        try:
+            with open("gui/style.qss", "r") as f:
+                self.setStyleSheet(f.read())
+        except Exception as e:
+            print("Could not load premium stylesheet:", e)
+            
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
@@ -45,20 +45,37 @@ class MainWindow(QMainWindow):
         
         # Sidebar Layer
         sidebar = QWidget()
-        sidebar.setFixedWidth(250)
-        sidebar.setStyleSheet("background-color: #1e1e1e; border-right: 1px solid #333;")
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(260)
         
-        # CyberSolu Logo/Brand Header
-        brand_lbl = QLabel("CyberSolu\nDM Engine")
-        brand_lbl.setStyleSheet("color: #4F46E5; font-size: 24px; font-weight: 900; padding: 25px 20px; background-color: #1e1e1e;")
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 30, 0, 20)
+        sidebar_layout.setSpacing(10)
+        
+        # CyberSolu Logo UI
+        logo_lbl = QLabel()
+        from PyQt6.QtGui import QPixmap
+        pixmap = QPixmap("icon.ico")
+        if not pixmap.isNull():
+            logo_lbl.setPixmap(pixmap.scaled(72, 72, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sidebar_layout.addWidget(logo_lbl)
+        
+        brand_lbl = QLabel("CyberSolu")
+        brand_lbl.setObjectName("brandName")
         brand_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sidebar_layout.addWidget(brand_lbl)
         
+        subtitle_lbl = QLabel("DM ENGINE v2.0")
+        subtitle_lbl.setObjectName("subHeader")
+        subtitle_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sidebar_layout.addWidget(subtitle_lbl)
+        
+        sidebar_layout.addSpacing(30)
+        
         # Navigation List
         self.nav_list = QListWidget()
-        nav_items = ["Dashboard", "Accounts", "Queue", "Message Pool", "Settings", "Logs"]
+        nav_items = ["Dashboard", "Accounts", "Queue", "Message Pool", "Settings", "Logs", "Support"]
         for it in nav_items:
             list_item = QListWidgetItem(it)
             self.nav_list.addItem(list_item)
@@ -67,8 +84,8 @@ class MainWindow(QMainWindow):
         sidebar_layout.addWidget(self.nav_list)
         
         # Bottom brand/author
-        author_lbl = QLabel("v1.0\nMade by Daniyal Rashid")
-        author_lbl.setStyleSheet("color: #6b7280; font-size: 12px; padding: 20px; text-align: center; background-color: #1e1e1e;")
+        author_lbl = QLabel("Built by Daniyal Rashid")
+        author_lbl.setObjectName("authorLabel")
         author_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sidebar_layout.addWidget(author_lbl)
         
@@ -85,6 +102,7 @@ class MainWindow(QMainWindow):
         self.panel_messages = MessagesPanel(self)
         self.panel_settings = SettingsPanel(self)
         self.panel_logs = LogsPanel(self)
+        self.panel_support = SupportPanel(self)
         
         self.content_stack.addWidget(self.panel_dashboard)
         self.content_stack.addWidget(self.panel_accounts)
@@ -92,6 +110,7 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.panel_messages)
         self.content_stack.addWidget(self.panel_settings)
         self.content_stack.addWidget(self.panel_logs)
+        self.content_stack.addWidget(self.panel_support)
         
         main_layout.addWidget(self.content_stack)
         

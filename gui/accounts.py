@@ -51,30 +51,21 @@ class AccountsPanel(QWidget):
         layout.setSpacing(15)
         
         header = QLabel("Instagram Accounts")
-        header.setStyleSheet("font-size: 24px; font-weight: bold;")
+        header.setObjectName("headerTitle")
         layout.addWidget(header)
         
         # Tools bar
         tools_layout = QHBoxLayout()
         self.btn_add = QPushButton("Add New Account")
-        self.btn_add.setStyleSheet("""
-            QPushButton {
-                background-color: #4F46E5; color: white; border: none; padding: 10px; border-radius: 4px;
-            }
-            QPushButton:hover { background-color: #4338CA; }
-        """)
         self.btn_add.clicked.connect(self.add_account)
         
         self.btn_remove = QPushButton("Remove Selected")
-        self.btn_remove.setStyleSheet("""
-            QPushButton { background-color: #DC2626; color: white; border: none; padding: 10px; border-radius: 4px; }
-            QPushButton:hover { background-color: #B91C1C; }
-        """)
+        self.btn_remove.setObjectName("btnDanger")
         self.btn_remove.clicked.connect(self.remove_selected)
         
         # Helper label for manual login note
         lbl_help = QLabel("Note: When adding, an Edge window will open. Login to Instagram manually, then close it.")
-        lbl_help.setStyleSheet("color: #a3a3a3; font-style: italic;")
+        lbl_help.setObjectName("subHeader")
         
         tools_layout.addWidget(self.btn_add)
         tools_layout.addWidget(self.btn_remove)
@@ -88,15 +79,9 @@ class AccountsPanel(QWidget):
         self.table.setColumnCount(5)
         self.table.setHorizontalHeaderLabels(["ID", "Username", "Status", "Sent Today", "Daily Limit"])
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        
-        # Dark theme table styles
-        self.table.setStyleSheet("""
-            QTableWidget { background-color: #1e1e1e; color: #fff; gridline-color: #333; }
-            QHeaderView::section { background-color: #2b2b2b; color: #fff; padding: 4px; }
-            QTableWidget::item:selected { background-color: #4F46E5; }
-        """)
         
         layout.addWidget(self.table)
         self.setLayout(layout)

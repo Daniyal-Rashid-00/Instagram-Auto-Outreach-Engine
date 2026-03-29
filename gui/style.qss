@@ -1,0 +1,235 @@
+/* SaaS Standard Structure - GitHub Dark Mode Inspired */
+
+QMainWindow, #main_content, #sidebar, QScrollArea {
+    background-color: #0D1117;
+}
+
+#sidebar {
+    background-color: #010409;
+    border-right: 1px solid #30363D;
+}
+
+QWidget {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #C9D1D9;
+}
+
+/* Fix QScrollArea Glaring White Canvas Bug */
+QScrollArea > QWidget > QWidget {
+    background-color: transparent;
+}
+
+/* Transparent Background Overrides for Text */
+QLabel, QCheckBox, QRadioButton, QGroupBox {
+    background-color: transparent;
+}
+
+/* Typography Headers */
+QLabel#headerTitle {
+    font-size: 24px;
+    font-weight: 600;
+    color: #FFFFFF;
+}
+
+QLabel#subHeader {
+    font-size: 13px;
+    font-weight: 400;
+    color: #8B949E;
+    line-height: 1.5;
+}
+
+QLabel#brandName {
+    font-size: 20px;
+    font-weight: 700;
+    color: #FFFFFF;
+}
+
+QLabel#authorLabel {
+    color: #484F58;
+    font-size: 12px;
+}
+
+/* Sidebar Navigation Items */
+QListWidget {
+    background-color: transparent;
+    border: none;
+    outline: none;
+}
+QListWidget::item {
+    font-size: 14px;
+    font-weight: 500;
+    color: #8B949E;
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin: 4px 12px;
+}
+QListWidget::item:selected {
+    background-color: rgba(177, 186, 196, 0.12);
+    color: #FFFFFF;
+}
+QListWidget::item:hover:!selected {
+    background-color: rgba(177, 186, 196, 0.08);
+    color: #C9D1D9;
+}
+
+/* Scrollbars */
+QScrollBar:vertical {
+    background-color: transparent;
+    width: 10px;
+    border: none;
+}
+QScrollBar::handle:vertical {
+    background-color: #30363D;
+    border-radius: 5px;
+    min-height: 30px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #484F58;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* Panels / Cards */
+QFrame#card, QLabel#card {
+    background-color: #161B22;
+    border-radius: 6px;
+    border: 1px solid #30363D;
+    /* Removed padding here since Python script layouts manage padding, but keeping background elegant */
+}
+
+QGroupBox {
+    color: #FFFFFF;
+    border: 1px solid #30363D;
+    border-radius: 6px;
+    margin-top: 15px;
+    padding-top: 15px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    left: 10px;
+    color: #8B949E;
+}
+
+/* Tables */
+QTableWidget {
+    background-color: #0D1117;
+    color: #C9D1D9;
+    border-radius: 6px;
+    border: 1px solid #30363D;
+    gridline-color: #30363D;
+    selection-background-color: rgba(177, 186, 196, 0.12);
+    selection-color: #FFFFFF;
+}
+QHeaderView::section {
+    background-color: #161B22;
+    color: #8B949E;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid #30363D;
+}
+QTableWidget::item {
+    padding: 6px 10px;
+    border-bottom: 1px solid #30363D;
+}
+
+/* Inputs / Text Areas */
+/* Reduced padding drastically to prevent squished text inside fixed-height PyQt SpinBoxes */
+QLineEdit, QSpinBox, QTimeEdit {
+    background-color: #0D1117;
+    border: 1px solid #30363D;
+    border-radius: 6px;
+    padding: 4px 8px; 
+    color: #C9D1D9;
+    font-size: 13px;
+    min-height: 26px; /* Explicit height ensures numbers fit beautifully */
+}
+QTextEdit {
+    background-color: #0D1117;
+    border: 1px solid #30363D;
+    border-radius: 6px;
+    padding: 8px;
+    color: #C9D1D9;
+    font-size: 13px;
+}
+QLineEdit:focus, QTextEdit:focus, QSpinBox:focus {
+    border: 1px solid #58A6FF;
+}
+
+/* General Action Buttons */
+QPushButton {
+    background-color: #21262D;
+    color: #C9D1D9;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid rgba(240, 246, 252, 0.1);
+}
+QPushButton:hover {
+    background-color: #30363D;
+    border: 1px solid #8B949E;
+}
+QPushButton:pressed {
+    background-color: #282E33;
+}
+
+/* Success / Primary Save Action */
+QPushButton#btnSuccess {
+    background-color: #238636;
+    color: #FFFFFF;
+    border: 1px solid rgba(240, 246, 252, 0.1);
+    font-weight: 600;
+}
+QPushButton#btnSuccess:hover {
+    background-color: #2EA043;
+}
+QPushButton#btnSuccess:pressed {
+    background-color: #238636;
+}
+
+/* Start Button (Ghost Green) */
+QPushButton#btnStart {
+    background-color: #21262D;
+    color: #3FB950;
+    border: 1px solid rgba(240, 246, 252, 0.1);
+}
+QPushButton#btnStart:hover {
+    background-color: #238636;
+    color: #FFFFFF;
+    border: 1px solid #238636;
+}
+QPushButton#btnStart:pressed {
+    background-color: #2EA043;
+}
+
+/* Secondary Caution/Warning */
+QPushButton#btnWarning {
+    background-color: #21262D;
+    color: #C9D1D9;
+    border: 1px solid #30363D;
+}
+QPushButton#btnWarning:hover {
+    background-color: #30363D;
+    border: 1px solid #8B949E;
+}
+
+/* Danger Button (Stop) */
+QPushButton#btnDanger {
+    background-color: #21262D;
+    color: #F85149;
+    border: 1px solid rgba(240, 246, 252, 0.1);
+}
+QPushButton#btnDanger:hover {
+    background-color: #DA3633;
+    color: #FFFFFF;
+    border: 1px solid #DA3633;
+}
+QPushButton#btnDanger:pressed {
+    background-color: #D1242F;
+}

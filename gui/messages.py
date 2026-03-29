@@ -18,24 +18,23 @@ class MessagesPanel(QWidget):
         main_layout.setSpacing(15)
         
         header = QLabel("Message Pool")
-        header.setStyleSheet("font-size: 24px; font-weight: bold;")
+        header.setObjectName("headerTitle")
         main_layout.addWidget(header)
         
         help_lbl = QLabel(
             "Add up to 10 messages. The engine will pick one randomly for each DM to avoid spam filters.\n"
             "Use {username} in your message and it will be replaced with the exact target handle."
         )
-        help_lbl.setStyleSheet("color: #a3a3a3; font-style: italic;")
+        help_lbl.setObjectName("subHeader")
         main_layout.addWidget(help_lbl)
         
         # Tools layout
         tools_layout = QHBoxLayout()
         self.btn_add = QPushButton("Add Message Slot +")
-        self.btn_add.setStyleSheet("background-color: #4F46E5; color: white; border: none; padding: 10px; border-radius: 4px;")
         self.btn_add.clicked.connect(self.add_slot)
         
         self.btn_save = QPushButton("Save All Messages")
-        self.btn_save.setStyleSheet("background-color: #059669; color: white; border: none; padding: 10px; border-radius: 4px;")
+        self.btn_save.setObjectName("btnSuccess")
         self.btn_save.clicked.connect(self.save_messages)
         
         tools_layout.addWidget(self.btn_add)
@@ -46,7 +45,6 @@ class MessagesPanel(QWidget):
         # Scroll area for messages
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
         
         self.messages_container = QWidget()
         self.messages_layout = QVBoxLayout(self.messages_container)
@@ -57,22 +55,21 @@ class MessagesPanel(QWidget):
         
         # Preview panel
         preview_lbl = QLabel("Live Preview (using sample username 'john_doe'):")
-        preview_lbl.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        preview_lbl.setObjectName("subHeader")
         main_layout.addWidget(preview_lbl)
         
         self.preview_box = QLabel("...")
-        self.preview_box.setStyleSheet("""
-            background-color: #2b2b2b;
-            padding: 15px;
-            border-radius: 4px;
-            color: #d1d5db;
-        """)
+        self.preview_box.setObjectName("card")
         self.preview_box.setWordWrap(True)
+        # Give it some padding explicitly since label padding in QSS can sometimes miss if not globally defined for labels
+        self.preview_box.setStyleSheet("padding: 15px;")
         main_layout.addWidget(self.preview_box)
         
         self.setLayout(main_layout)
 
-    def add_slot(self, content=""):
+    def add_slot(self, content=None):
+        if content is False or content is None:
+            content = ""
         if len(self.text_boxes) >= 10:
             QMessageBox.warning(self, "Limit Reached", "You can only have up to 10 message templates.")
             return
@@ -84,12 +81,11 @@ class MessagesPanel(QWidget):
         txt = QTextEdit()
         txt.setFixedHeight(80)
         txt.setText(content)
-        txt.setStyleSheet("background-color: #1e1e1e; color: white; border: 1px solid #333; border-radius: 4px;")
         txt.textChanged.connect(self.update_preview)
         
         btn_remove = QPushButton("X")
         btn_remove.setFixedSize(40, 40)
-        btn_remove.setStyleSheet("background-color: #DC2626; color: white; border: none; border-radius: 4px;")
+        btn_remove.setObjectName("btnDanger")
         btn_remove.clicked.connect(lambda: self.remove_slot(row_widget, txt))
         
         row_layout.addWidget(txt)
