@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QTextEdit, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QTextCursor
 from datetime import datetime
 from data.db import get_connection
 from gui.dialogs import dark_info, dark_warning
@@ -59,16 +60,25 @@ class LogsPanel(QWidget):
         
     def append_log(self, msg_type, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
-        color = "#a3a3a3" # default grey
-        
-        if msg_type == "ERROR": color = "#EF4444" # red
-        elif msg_type == "SUCCESS": color = "#10B981" # green
-        elif msg_type == "INFO": color = "#3B82F6" # blue
-        elif msg_type == "WARN": color = "#F59E0B" # yellow
-        
+        color = "#a3a3a3"  # default grey
+
+        if msg_type == "ERROR":   color = "#EF4444"  # red
+        elif msg_type == "SUCCESS": color = "#10B981"  # green
+        elif msg_type == "INFO":  color = "#3B82F6"  # blue
+        elif msg_type == "WARN":  color = "#F59E0B"  # yellow
+
         formatted = f'<span style="color: {color}">[{timestamp}] [{msg_type}] {message}</span><br>'
+
+        # ── CRITICAL: always move to the absolute end before inserting ──────────
+        # insertHtml() writes at the *current cursor position*. If the user has
+        # ever clicked inside the log box the cursor is somewhere in the middle,
+        # so new log entries would appear there (or get swallowed). Forcing the
+        # cursor to End every time guarantees all entries append correctly.
+        cursor = self.log_box.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.log_box.setTextCursor(cursor)
         self.log_box.insertHtml(formatted)
-        
+
         # Scroll to bottom
         scrollbar = self.log_box.verticalScrollBar()
         scrollbar.setValue(scrollbar.maximum())
