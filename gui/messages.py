@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QTextEdit, QScrollArea, QTabWidget, QLineEdit)
+                             QLabel, QTextEdit, QScrollArea, QTabWidget, QLineEdit,
+                             QFileDialog, QFrame)
 from PyQt6.QtCore import Qt
 import json
 from pathlib import Path
@@ -76,6 +77,37 @@ class MessagesPanel(QWidget):
         self.messages_layout_followup.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll_followup.setWidget(self.messages_container_followup)
         self.tab_followup_layout.addWidget(self.scroll_followup)
+
+        # ── Attachment row (Follow-up only) ──────────────────────────────────
+        attach_sep = QFrame()
+        attach_sep.setFrameShape(QFrame.Shape.HLine)
+        attach_sep.setObjectName("separator")
+        self.tab_followup_layout.addWidget(attach_sep)
+
+        attach_row = QHBoxLayout()
+        attach_row.setSpacing(8)
+
+        attach_lbl = QLabel("Attachment (optional, sent after text):")
+        attach_lbl.setObjectName("subHeader")
+
+        self.attach_path_edit = QLineEdit()
+        self.attach_path_edit.setReadOnly(True)
+        self.attach_path_edit.setPlaceholderText("No file selected — click Browse to attach a PDF or image")
+        self.attach_path_edit.setMinimumHeight(30)
+
+        btn_browse = QPushButton("Browse…")
+        btn_browse.setObjectName("btnSecondary")
+        btn_browse.clicked.connect(self._browse_attachment)
+
+        btn_clear_attach = QPushButton("Clear")
+        btn_clear_attach.setObjectName("btnDanger")
+        btn_clear_attach.clicked.connect(self._clear_attachment)
+
+        attach_row.addWidget(attach_lbl)
+        attach_row.addWidget(self.attach_path_edit, 1)
+        attach_row.addWidget(btn_browse)
+        attach_row.addWidget(btn_clear_attach)
+        self.tab_followup_layout.addLayout(attach_row)
         
         self.tabs.addTab(self.tab_initial, "Initial Outreach")
         self.tabs.addTab(self.tab_followup, "Follow-ups")
@@ -173,6 +205,17 @@ class MessagesPanel(QWidget):
         else:
             self.preview_box.setText("...")
             
+    def _browse_attachment(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Attachment", "",
+            "Supported Files (*.pdf *.jpg *.jpeg *.png *.mp4 *.mov);;All Files (*)"
+        )
+        if path:
+            self.attach_path_edit.setText(path)
+
+    def _clear_attachment(self):
+        self.attach_path_edit.clear()
+
     def load_messages(self):
         path = Path('config/messages.json')
         if path.exists():
@@ -180,39 +223,50 @@ class MessagesPanel(QWidget):
                 data = json.load(f)
                 msgs = data.get('messages', [])
                 followups = data.get('followups', [])
-                
+                attach = data.get('followup_attachment', '')
+
                 for m in msgs:
-                    # switch tabs logically
-                    self.text_boxes_initial, self.messages_layout_initial = self.text_boxes_initial, self.messages_layout_initial
                     self.add_slot(m, is_followup=False)
-                    
+
                 for m in followups:
                     self.add_slot(m, is_followup=True)
-        
+
+                if attach:
+                    self.attach_path_edit.setText(attach)
+
         if not self.text_boxes_initial:
             self.add_slot("Hey {username}, love your profile!", is_followup=False)
-            
+
         if not self.text_boxes_followup:
             self.add_slot("Hey {username}, following up on my previous message!", is_followup=True)
-            
+
         self.update_preview()
 
     def save_messages(self):
-        msgs_init = [txt.toPlainText().strip() for txt in self.text_boxes_initial if txt.toPlainText().strip()]
+        msgs_init   = [txt.toPlainText().strip() for txt in self.text_boxes_initial  if txt.toPlainText().strip()]
         msgs_follow = [txt.toPlainText().strip() for txt in self.text_boxes_followup if txt.toPlainText().strip()]
-        
+
         if not msgs_init and not msgs_follow:
-             dark_warning(self, "Validation Error", "You must have at least one valid message before saving.")
-             return
-             
+            dark_warning(self, "Validation Error", "You must have at least one valid message before saving.")
+            return
+
         for list_msgs in [msgs_init, msgs_follow]:
             for m in list_msgs:
                 if len(m) > 1000:
                     dark_warning(self, "Validation Error", "One of your messages exceeds the 1000 character limit.")
                     return
-                
+
+        attach_path = self.attach_path_edit.text().strip()
+
         Path('config').mkdir(exist_ok=True)
+        payload = {
+            "messages":            msgs_init,
+            "followups":           msgs_follow,
+            "followup_attachment": attach_path,
+        }
         with open('config/messages.json', 'w', encoding='utf-8') as f:
-            json.dump({"messages": msgs_init, "followups": msgs_follow}, f, indent=2)
-            
-        dark_info(self, "Saved", f"{len(msgs_init)} Initial and {len(msgs_follow)} Follow-up template(s) saved successfully.")
+            json.dump(payload, f, indent=2)
+
+        attach_note = f" + attachment: {Path(attach_path).name}" if attach_path else ""
+        dark_info(self, "Saved",
+                  f"{len(msgs_init)} Initial and {len(msgs_follow)} Follow-up template(s) saved.{attach_note}")

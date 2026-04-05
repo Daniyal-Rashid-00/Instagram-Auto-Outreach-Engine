@@ -147,6 +147,8 @@ class MainWindow(QMainWindow):
     # --- Engine Control Wrappers ---
     def start_engine(self):
         if not self.engine.is_running:
+            # Read the Follow-up Only toggle from the dashboard before launch
+            self.engine.set_followup_only(self.panel_dashboard.followup_only)
             self.panel_dashboard.update_status("Starting...")
             self.engine.start()
         elif self.engine.is_paused:

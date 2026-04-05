@@ -35,6 +35,7 @@ class DMEngine(QThread):
         self.account_manager = AccountManager()
         self.queue_manager = QueueManager()
         self.consecutive_failures = 0  # tracks back-to-back real failures
+        self.followup_only = False     # set via dashboard toggle before start
         
         self._load_settings()
         
@@ -47,10 +48,21 @@ class DMEngine(QThread):
                 self.settings = json.load(f)
         else:
             self.settings = {"delay_min": 45, "delay_max": 120}
+
+        # Load attachment path from messages.json (follow-up only)
+        messages_path = Path(__file__).parent.parent / 'config' / 'messages.json'
+        self.followup_attachment = ''
+        if messages_path.exists():
+            with open(messages_path, 'r', encoding='utf-8') as f:
+                self.followup_attachment = json.load(f).get('followup_attachment', '')
             
     def stop(self):
         self.is_running = False
         self.log_signal.emit("WARN", "Stopping engine...")
+
+    def set_followup_only(self, value: bool):
+        """Called by main_window before starting the engine."""
+        self.followup_only = value
         
     def pause(self):
         self.is_paused = True
@@ -234,6 +246,13 @@ class DMEngine(QThread):
                     return
                 
                 queue = self.queue_manager.get_pending()
+
+                # Follow-up Only Mode: skip regular initial-outreach entries
+                if self.followup_only:
+                    queue = [t for t in queue if t.get('status') == 'Pending Followup']
+                    self.log_signal.emit("INFO",
+                        f"Follow-up Only Mode active — {len(queue)} follow-up task(s) queued.")
+
                 if self.settings.get('send_order') == 'random':
                     random.shuffle(queue)
                     
@@ -327,8 +346,39 @@ class DMEngine(QThread):
                         page.keyboard.insert_text(msg)
                         self._random_sleep(1, 3)
                         
-                        # Actually send
+                        # Actually send text message
                         page.keyboard.press("Enter")
+
+                        # ── Follow-up Attachment (silent fail) ─────────────────
+                        if is_followup and self.followup_attachment:
+                            attach_path = Path(self.followup_attachment)
+                            if attach_path.exists():
+                                try:
+                                    self._random_sleep(1, 2)
+                                    # Click the attachment / media icon
+                                    clip_btn = page.locator(
+                                        "[aria-label*='ttach'], [aria-label*='edia'], "
+                                        "svg[aria-label*='ttach'], button[aria-label*='ile']"
+                                    ).first
+                                    if clip_btn.count() == 0:
+                                        # Fallback: the image/clip SVG inside the chat toolbar
+                                        clip_btn = page.locator(
+                                            "div[role='button'] svg"
+                                        ).nth(1)
+
+                                    with page.expect_file_chooser(timeout=8000) as fc_info:
+                                        clip_btn.click()
+                                    file_chooser = fc_info.value
+                                    file_chooser.set_files(str(attach_path))
+                                    self._random_sleep(2, 4)
+                                    page.keyboard.press("Enter")
+                                    self.log_signal.emit("INFO", f"Attachment sent: {attach_path.name}")
+                                except Exception as attach_err:
+                                    self.log_signal.emit("WARN",
+                                        f"Attachment skipped for {target_username}: {attach_err}")
+                            else:
+                                self.log_signal.emit("WARN",
+                                    f"Attachment file not found: {self.followup_attachment}")
 
                         # Post-send restriction check — give Instagram 2s to react
                         time.sleep(2.0)

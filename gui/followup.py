@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
-    QSplitter, QAbstractItemView, QLineEdit
+    QSplitter, QAbstractItemView, QLineEdit, QMenu, QWidgetAction
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont
@@ -92,14 +92,26 @@ class FollowupPanel(QWidget):
         left_hdr.addWidget(self.lbl_sent_count)
         left_vbox.addLayout(left_hdr)
 
-        # Selection toolbar
-        sel_toolbar = QHBoxLayout()
-        sel_toolbar.setSpacing(6)
+        # Selection toolbar (2 rows to prevent squishing)
+        sel_row1 = QHBoxLayout()
+        sel_row1.setSpacing(6)
         
         self.search_sent = QLineEdit()
         self.search_sent.setPlaceholderText("🔍 Search...")
         self.search_sent.setMinimumHeight(28)
         self.search_sent.textChanged.connect(self.filter_sent_table)
+
+        self._dm_filter_value = None   # None = show all
+        self.btn_dm_filter = QPushButton("All Users")
+        self.btn_dm_filter.setObjectName("btnSecondary")
+        self.btn_dm_filter.setMinimumHeight(28)
+        self.btn_dm_filter.clicked.connect(self._show_dm_filter_menu)
+
+        sel_row1.addWidget(self.search_sent)
+        sel_row1.addWidget(self.btn_dm_filter)
+        
+        sel_row2 = QHBoxLayout()
+        sel_row2.setSpacing(6)
         
         btn_sel_all   = QPushButton("Select All")
         btn_sel_none  = QPushButton("Select None")
@@ -108,14 +120,15 @@ class FollowupPanel(QWidget):
         btn_sel_all.clicked.connect(self._select_all_sent)
         btn_sel_none.clicked.connect(self._select_none_sent)
         
-        sel_toolbar.addWidget(self.search_sent)
-        sel_toolbar.addWidget(btn_sel_all)
-        sel_toolbar.addWidget(btn_sel_none)
-        sel_toolbar.addStretch()
+        sel_row2.addWidget(btn_sel_all)
+        sel_row2.addWidget(btn_sel_none)
+        sel_row2.addStretch()
         self.lbl_sent_sel = QLabel("0 selected")
         self.lbl_sent_sel.setObjectName("subHeader")
-        sel_toolbar.addWidget(self.lbl_sent_sel)
-        left_vbox.addLayout(sel_toolbar)
+        sel_row2.addWidget(self.lbl_sent_sel)
+        
+        left_vbox.addLayout(sel_row1)
+        left_vbox.addLayout(sel_row2)
 
         # Table
         self.sent_table = self._build_table(
@@ -151,15 +164,17 @@ class FollowupPanel(QWidget):
         right_hdr.addWidget(self.lbl_fu_count)
         right_vbox.addLayout(right_hdr)
 
-        # Selection toolbar
-        fu_toolbar = QHBoxLayout()
-        fu_toolbar.setSpacing(6)
-        
+        # Selection toolbar (2 rows)
+        fu_row1 = QHBoxLayout()
+        fu_row1.setSpacing(6)
         self.search_fu = QLineEdit()
         self.search_fu.setPlaceholderText("🔍 Search...")
         self.search_fu.setMinimumHeight(28)
         self.search_fu.textChanged.connect(self.filter_fu_table)
+        fu_row1.addWidget(self.search_fu)
         
+        fu_row2 = QHBoxLayout()
+        fu_row2.setSpacing(6)
         btn_fu_all  = QPushButton("Select All")
         btn_fu_none = QPushButton("Select None")
         btn_fu_all.setObjectName("btnSecondary")
@@ -170,12 +185,13 @@ class FollowupPanel(QWidget):
         btn_fu_remove.setObjectName("btnDanger")
         btn_fu_remove.clicked.connect(self.remove_from_followup)
         
-        fu_toolbar.addWidget(self.search_fu)
-        fu_toolbar.addWidget(btn_fu_all)
-        fu_toolbar.addWidget(btn_fu_none)
-        fu_toolbar.addStretch()
-        fu_toolbar.addWidget(btn_fu_remove)
-        right_vbox.addLayout(fu_toolbar)
+        fu_row2.addWidget(btn_fu_all)
+        fu_row2.addWidget(btn_fu_none)
+        fu_row2.addStretch()
+        fu_row2.addWidget(btn_fu_remove)
+        
+        right_vbox.addLayout(fu_row1)
+        right_vbox.addLayout(fu_row2)
 
         # Table
         self.fu_table = self._build_table(
@@ -270,10 +286,55 @@ class FollowupPanel(QWidget):
         
     def filter_sent_table(self, text):
         search_term = text.lower()
+        filter_data = self._dm_filter_value   # None = all
+        
         for row in range(self.sent_table.rowCount()):
-            item = self.sent_table.item(row, 0) # Username column
+            item_user = self.sent_table.item(row, 0)
+            item_dms = self.sent_table.item(row, 2)
+            
+            if item_user and item_dms:
+                u_text = item_user.text().lower()
+                d_text = item_dms.text()
+                
+                match_search = search_term in u_text
+                match_combo = (filter_data is None) or (d_text == filter_data)
+                
+                self.sent_table.setRowHidden(row, not (match_search and match_combo))
+
+    def _show_dm_filter_menu(self):
+        """Show a fully-styled QMenu for the DM count filter."""
+        menu = QMenu(self)
+        menu.setObjectName("dmFilterMenu")
+
+        # Build options from current table data
+        import collections
+        dm_counts = collections.defaultdict(int)
+        for row in range(self.sent_table.rowCount()):
+            item = self.sent_table.item(row, 2)
             if item:
-                self.sent_table.setRowHidden(row, search_term not in item.text().lower())
+                try:
+                    dm_counts[int(item.text())] += 1
+                except ValueError:
+                    pass
+
+        total = sum(dm_counts.values())
+
+        def _pick(value, label):
+            self._dm_filter_value = value
+            self.btn_dm_filter.setText(label)
+            self.filter_sent_table(self.search_sent.text())
+
+        a_all = menu.addAction(f"All Users ({total})")
+        a_all.triggered.connect(lambda: _pick(None, "All Users"))
+        menu.addSeparator()
+        for k in sorted(dm_counts.keys()):
+            label = f"{k} DM(s)  ·  {dm_counts[k]} users"
+            a = menu.addAction(label)
+            a.triggered.connect(lambda checked, v=str(k), l=f"{k} DM(s)": _pick(v, l))
+
+        menu.exec(self.btn_dm_filter.mapToGlobal(
+            self.btn_dm_filter.rect().bottomLeft()
+        ))
                 
     def filter_fu_table(self, text):
         search_term = text.lower()
@@ -296,6 +357,20 @@ class FollowupPanel(QWidget):
             LIMIT 500
         """)
         rows = c.fetchall()
+        
+        # Update button label to reflect current data
+        import collections
+        dm_counts = collections.defaultdict(int)
+        for r in rows:
+            dm_counts[r['dm_count']] += 1
+        total_users = sum(dm_counts.values())
+        # Reset filter if previously selected bucket no longer exists
+        if self._dm_filter_value is not None and int(self._dm_filter_value) not in dm_counts:
+            self._dm_filter_value = None
+            self.btn_dm_filter.setText("All Users")
+        elif self._dm_filter_value is None:
+            self.btn_dm_filter.setText("All Users")
+
         self.sent_table.setRowCount(len(rows))
         for r, row in enumerate(rows):
             u = QTableWidgetItem(row['username'])

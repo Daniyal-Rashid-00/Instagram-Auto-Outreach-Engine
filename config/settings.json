@@ -1,6 +1,6 @@
 {
-  "delay_min": 45,
-  "delay_max": 120,
+  "delay_min": 60,
+  "delay_max": 125,
   "daily_limit": 45,
   "send_order": "sequential",
   "schedule_enabled": false,
