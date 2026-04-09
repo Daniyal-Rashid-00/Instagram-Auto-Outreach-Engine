@@ -355,21 +355,57 @@ class DMEngine(QThread):
                             if attach_path.exists():
                                 try:
                                     self._random_sleep(1, 2)
-                                    # Click the attachment / media icon
-                                    clip_btn = page.locator(
-                                        "[aria-label*='ttach'], [aria-label*='edia'], "
-                                        "svg[aria-label*='ttach'], button[aria-label*='ile']"
-                                    ).first
-                                    if clip_btn.count() == 0:
-                                        # Fallback: the image/clip SVG inside the chat toolbar
-                                        clip_btn = page.locator(
-                                            "div[role='button'] svg"
-                                        ).nth(1)
 
-                                    with page.expect_file_chooser(timeout=8000) as fc_info:
-                                        clip_btn.click()
-                                    file_chooser = fc_info.value
-                                    file_chooser.set_files(str(attach_path))
+                                    # Instagram DM toolbar attachment selectors (priority order)
+                                    _attach_selectors = [
+                                        # 2024-2025 Instagram DM — image/media icon
+                                        "[aria-label='Add Photo or Video']",
+                                        "[aria-label='Photo or Video']",
+                                        "[aria-label='Attach']",
+                                        "[aria-label='Clip']",
+                                        # Generic aria-label partial matches
+                                        "[aria-label*='Photo']",
+                                        "[aria-label*='Video']",
+                                        "[aria-label*='Media']",
+                                        "[aria-label*='File']",
+                                        "[aria-label*='Attach']",
+                                        # SVG icon buttons in compose toolbar
+                                        "svg[aria-label*='Photo']",
+                                        "svg[aria-label*='Media']",
+                                    ]
+
+                                    clip_btn = None
+                                    for sel in _attach_selectors:
+                                        try:
+                                            candidate = page.locator(sel).first
+                                            if candidate.count() > 0:
+                                                candidate.wait_for(state="visible", timeout=2000)
+                                                clip_btn = candidate
+                                                self.log_signal.emit("INFO",
+                                                    f"Attachment button found via: {sel}")
+                                                break
+                                        except Exception:
+                                            continue
+
+                                    # Last-resort: try injecting directly into a hidden file input
+                                    if clip_btn is None:
+                                        file_inputs = page.locator("input[type='file']")
+                                        if file_inputs.count() > 0:
+                                            file_inputs.first.set_input_files(str(attach_path))
+                                            self._random_sleep(2, 4)
+                                            page.keyboard.press("Enter")
+                                            self.log_signal.emit("INFO",
+                                                f"Attachment sent via hidden input: {attach_path.name}")
+                                        else:
+                                            raise Exception(
+                                                "No attachment button or file input found on page — "
+                                                "Instagram may have updated its DM UI"
+                                            )
+                                    else:
+                                        with page.expect_file_chooser(timeout=10000) as fc_info:
+                                            clip_btn.click(force=True)
+                                        file_chooser = fc_info.value
+                                        file_chooser.set_files(str(attach_path))
                                     self._random_sleep(2, 4)
                                     page.keyboard.press("Enter")
                                     self.log_signal.emit("INFO", f"Attachment sent: {attach_path.name}")

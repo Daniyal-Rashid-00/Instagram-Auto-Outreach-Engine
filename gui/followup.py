@@ -351,7 +351,7 @@ class FollowupPanel(QWidget):
         c.execute("""
             SELECT sl.username, MAX(sl.sent_at) as sent_at, COUNT(sl.id) as dm_count 
             FROM sent_log sl
-            WHERE sl.username NOT IN (SELECT username FROM followup_queue)
+            WHERE sl.username NOT IN (SELECT username FROM followup_queue WHERE status = 'Pending')
             GROUP BY sl.username
             ORDER BY MAX(sl.sent_at) DESC 
             LIMIT 500
