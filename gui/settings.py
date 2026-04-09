@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 from gui.dialogs import dark_warning, dark_info
 
+# Absolute path to the project-level config dir, works regardless of cwd
+_CONFIG_DIR  = Path(__file__).parent.parent / 'config'
+_SETTINGS_FILE = _CONFIG_DIR / 'settings.json'
+
 
 def _make_card():
     card = QFrame()
@@ -173,6 +177,36 @@ class SettingsPanel(QWidget):
         sched_layout.addLayout(time_row)
 
         main_layout.addWidget(sched_card)
+
+        # ── Card 6: Appearance ─────────────────────────────────────
+        appear_card = _make_card()
+        appear_layout = QVBoxLayout(appear_card)
+        appear_layout.setContentsMargins(20, 16, 20, 16)
+        appear_layout.setSpacing(12)
+        appear_layout.addWidget(_section_title("Appearance"))
+
+        appear_desc = QLabel(
+            "Switch between GitHub Dark and GitHub Light themes. Applied immediately on Save."
+        )
+        appear_desc.setObjectName("subHeader")
+        appear_desc.setWordWrap(True)
+        appear_layout.addWidget(appear_desc)
+
+        self.radio_dark  = QRadioButton("🌙  Dark Theme (GitHub Dark)")
+        self.radio_light = QRadioButton("☀️  Light Theme (GitHub Light)")
+        self.theme_group = QButtonGroup()
+        self.theme_group.addButton(self.radio_dark,  1)
+        self.theme_group.addButton(self.radio_light, 2)
+        self.radio_dark.setChecked(True)  # default
+
+        theme_row = QHBoxLayout()
+        theme_row.addWidget(self.radio_dark)
+        theme_row.addSpacing(30)
+        theme_row.addWidget(self.radio_light)
+        theme_row.addStretch()
+        appear_layout.addLayout(theme_row)
+
+        main_layout.addWidget(appear_card)
         main_layout.addStretch()
 
         scroll.setWidget(container)
@@ -190,9 +224,8 @@ class SettingsPanel(QWidget):
     # ── Data ──────────────────────────────────────────────────────────────
 
     def load_settings(self):
-        settings_path = Path('config/settings.json')
-        if settings_path.exists():
-            with open(settings_path, 'r') as f:
+        if _SETTINGS_FILE.exists():
+            with open(_SETTINGS_FILE, 'r') as f:
                 self.settings = json.load(f)
         else:
             self.settings = {
@@ -213,6 +246,11 @@ class SettingsPanel(QWidget):
 
         self.chk_schedule.setChecked(self.settings.get("schedule_enabled", False))
         self.chk_gaussian.setChecked(self.settings.get("use_gaussian_delays", False))
+
+        if self.settings.get("theme", "dark") == "dark":
+            self.radio_dark.setChecked(True)
+        else:
+            self.radio_light.setChecked(True)
 
         start_t = QTime.fromString(self.settings.get("schedule_start", "20:00"), "HH:mm")
         end_t = QTime.fromString(self.settings.get("schedule_end", "23:00"), "HH:mm")
@@ -235,11 +273,15 @@ class SettingsPanel(QWidget):
             "schedule_enabled": self.chk_schedule.isChecked(),
             "schedule_start": self.time_start.time().toString("HH:mm"),
             "schedule_end": self.time_end.time().toString("HH:mm"),
-            "use_gaussian_delays": self.chk_gaussian.isChecked()
+            "use_gaussian_delays": self.chk_gaussian.isChecked(),
+            "theme": "dark" if self.radio_dark.isChecked() else "light",
         }
 
-        Path('config').mkdir(exist_ok=True)
-        with open('config/settings.json', 'w') as f:
+        _CONFIG_DIR.mkdir(exist_ok=True)
+        with open(_SETTINGS_FILE, 'w') as f:
             json.dump(self.settings, f, indent=2)
+
+        # Apply theme immediately
+        self.main_window.apply_theme(self.settings['theme'])
 
         dark_info(self, "Settings Saved", "Preferences updated successfully.\nChanges will take effect on the next engine session.")

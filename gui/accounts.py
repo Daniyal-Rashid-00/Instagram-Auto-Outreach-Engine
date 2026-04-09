@@ -19,11 +19,29 @@ class LoginWorker(QThread):
             with sync_playwright() as p:
                 profile_dir = Path(f'data/profiles/account_{self.account_id}')
                 profile_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Add heavy anti-detect features so Meta doesn't block the manual login
                 context = p.chromium.launch_persistent_context(
                     user_data_dir=str(profile_dir.absolute()),
                     channel="msedge",
-                    headless=False
+                    headless=False,
+                    no_viewport=True,
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+                    ignore_default_args=["--enable-automation"],
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-infobars",
+                        "--window-size=1280,800"
+                    ]
                 )
+                
+                # Inject stealth script to remove webdriver flag
+                context.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                """)
+                
                 page = context.pages[0] if context.pages else context.new_page()
                 page.goto("https://www.instagram.com/")
                 
@@ -58,13 +76,18 @@ class AccountsPanel(QWidget):
         tools_layout = QHBoxLayout()
         self.btn_add = QPushButton("Add New Account")
         self.btn_add.clicked.connect(self.add_account)
-        
+
         self.btn_remove = QPushButton("Remove Selected")
         self.btn_remove.setObjectName("btnDanger")
         self.btn_remove.clicked.connect(self.remove_selected)
-        
+
+        self.btn_set_limit = QPushButton("📊  Set Daily Limit")
+        self.btn_set_limit.setObjectName("btnWarning")
+        self.btn_set_limit.clicked.connect(self.set_daily_limit)
+
         tools_layout.addWidget(self.btn_add)
         tools_layout.addWidget(self.btn_remove)
+        tools_layout.addWidget(self.btn_set_limit)
         tools_layout.addStretch()
         
         layout.addLayout(tools_layout)
@@ -89,7 +112,7 @@ class AccountsPanel(QWidget):
         note_icon.setStyleSheet("color: #58A6FF; font-size: 16px; font-weight: bold;")
         note_icon.setFixedWidth(20)
         note_text = QLabel(
-            "When you click Add New Account, a Microsoft Edge browser window will open automatically. "
+            "When you click Add New Account, a secured browser window will open automatically. "
             "Log into your Instagram account inside that window, then close it. "
             "The session will be saved and the engine can use that account from now on."
         )
@@ -150,9 +173,36 @@ class AccountsPanel(QWidget):
         selected = self.table.selectedItems()
         if not selected:
             return
-            
         row = selected[0].row()
         acc_id = int(self.table.item(row, 0).text())
         if dark_question(self, "Remove Account", "Are you sure? This will permanently delete the session data for this account."):
             self.account_manager.remove_account(acc_id)
             self.refresh_table()
+
+    def set_daily_limit(self):
+        selected = self.table.selectedItems()
+        if not selected:
+            dark_warning(self, "No Selection", "Please select an account row first.")
+            return
+        row = selected[0].row()
+        acc_id    = int(self.table.item(row, 0).text())
+        username  = self.table.item(row, 1).text()
+        cur_limit = self.table.item(row, 4).text()
+
+        text, ok = dark_input(
+            self, 'Set Daily DM Limit',
+            f'New daily DM limit for @{username}:',
+            placeholder='e.g. 30',
+            text=cur_limit
+        )
+        if ok and text:
+            try:
+                limit = int(text)
+                if not (1 <= limit <= 500):
+                    dark_warning(self, "Invalid", "Limit must be between 1 and 500.")
+                    return
+                self.account_manager.update_daily_limit(acc_id, limit)
+                self.refresh_table()
+                dark_info(self, "Updated", f"Daily limit for @{username} updated to {limit} DMs/day.")
+            except ValueError:
+                dark_warning(self, "Invalid Input", "Please enter a whole number.")

@@ -28,6 +28,10 @@ class QueuePanel(QWidget):
         self.btn_import = QPushButton("Import TXT File")
         self.btn_import.clicked.connect(self.import_txt)
         
+        self.btn_dedup = QPushButton("Remove Duplicates")
+        self.btn_dedup.setObjectName("btnWarning")
+        self.btn_dedup.clicked.connect(self.dedup_queue)
+        
         self.btn_edit = QPushButton("Edit Selected")
         self.btn_edit.clicked.connect(self.edit_selected)
         
@@ -39,11 +43,18 @@ class QueuePanel(QWidget):
         self.btn_clear.setObjectName("btnDanger")
         self.btn_clear.clicked.connect(self.clear_queue)
         
+        self.txt_search = QLineEdit()
+        self.txt_search.setPlaceholderText("🔍 Search username...")
+        self.txt_search.setFixedWidth(200)
+        self.txt_search.textChanged.connect(self.filter_table)
+        
         tools_layout.addWidget(self.btn_import)
+        tools_layout.addWidget(self.btn_dedup)
         tools_layout.addWidget(self.btn_edit)
         tools_layout.addWidget(self.btn_delete)
         tools_layout.addWidget(self.btn_clear)
         tools_layout.addStretch()
+        tools_layout.addWidget(self.txt_search)
         
         # Manual Add layout
         add_layout = QHBoxLayout()
@@ -98,6 +109,24 @@ class QueuePanel(QWidget):
             self.table.setItem(row, 1, user_col)
             self.table.setItem(row, 2, status_col)
             self.table.setItem(row, 3, time_col)
+            
+        # apply existing filter if any
+        self.filter_table(self.txt_search.text())
+
+    def filter_table(self, text):
+        search_term = text.lower()
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 1) # Username column
+            if item:
+                self.table.setRowHidden(row, search_term not in item.text().lower())
+
+    def dedup_queue(self):
+        removed = self.queue_manager.remove_duplicates()
+        if removed > 0:
+            dark_info(self, "Duplicates Removed", f"Successfully found and removed {removed} duplicated username(s).")
+            self.refresh_table()
+        else:
+            dark_info(self, "No Duplicates Found", "The queue is perfectly clean! No duplicates were found.")
 
     def import_txt(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open TXT File", "", "Text Files (*.txt);;All Files (*)")

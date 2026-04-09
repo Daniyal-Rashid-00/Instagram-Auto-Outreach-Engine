@@ -86,7 +86,7 @@ class QueueManager:
         
     def get_pending(self):
         c = self.conn.cursor()
-        c.execute("SELECT id, username FROM queue WHERE status = 'Pending' ORDER BY id ASC")
+        c.execute("SELECT id, username, status FROM queue WHERE status IN ('Pending', 'Pending Followup') ORDER BY id ASC")
         return [dict(row) for row in c.fetchall()]
 
     def update_status(self, queue_id, status, error_msg=""):
@@ -124,3 +124,74 @@ class QueueManager:
         c = self.conn.cursor()
         c.execute("DELETE FROM queue")
         self.conn.commit()
+
+    def force_add_single(self, username):
+        """Force-add to main queue, bypassing sent_log and blacklist — for follow-ups."""
+        username = username.strip()
+        if not username:
+            return False, "Empty username"
+        c = self.conn.cursor()
+        try:
+            c.execute(
+                "INSERT OR REPLACE INTO queue (username, status, timestamp) VALUES (?, 'Pending Followup', ?)",
+                (username, datetime.now().isoformat())
+            )
+            self.conn.commit()
+            return True, "Added"
+        except Exception as e:
+            return False, str(e)
+            
+    def remove_duplicates(self):
+        """Removes any redundant identical usernames keeping only the oldest."""
+        c = self.conn.cursor()
+        c.execute('''
+            DELETE FROM queue 
+            WHERE id NOT IN (
+                SELECT MIN(id) 
+                FROM queue 
+                GROUP BY username
+            )
+        ''')
+        removed = c.rowcount
+        self.conn.commit()
+        return removed
+
+    # ── Follow-up queue ───────────────────────────────────────────────────
+
+    def get_followup_queue(self):
+        c = self.conn.cursor()
+        c.execute("SELECT id, username, queued_at, status FROM followup_queue ORDER BY id DESC")
+        return [dict(row) for row in c.fetchall()]
+
+    def add_to_followup(self, username):
+        c = self.conn.cursor()
+        try:
+            c.execute(
+                "INSERT OR IGNORE INTO followup_queue (username, queued_at, status) VALUES (?, ?, 'Pending')",
+                (username, datetime.now().isoformat())
+            )
+            # If ignore fired (already exists), let's ensure its status goes back to Pending if it was Sent previously?
+            # Actually, doing REPLACE is better.
+            if c.rowcount == 0:
+                 c.execute("UPDATE followup_queue SET status = 'Pending', queued_at = ? WHERE username = ?", 
+                           (datetime.now().isoformat(), username))
+            self.conn.commit()
+            return True
+        except Exception:
+            return False
+
+    def remove_from_followup(self, username):
+        c = self.conn.cursor()
+        c.execute("DELETE FROM followup_queue WHERE username = ?", (username,))
+        self.conn.commit()
+
+    def get_pending_followups(self):
+        c = self.conn.cursor()
+        c.execute("SELECT username FROM followup_queue WHERE status = 'Pending'")
+        return [row['username'] for row in c.fetchall()]
+
+    def mark_followup_sent(self, username):
+        c = self.conn.cursor()
+        c.execute("UPDATE followup_queue SET status = 'Sent' WHERE username = ?", (username,))
+        self.conn.commit()
+

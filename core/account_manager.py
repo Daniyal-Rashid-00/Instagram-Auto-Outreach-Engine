@@ -9,7 +9,7 @@ class AccountManager:
         self.load_settings()
         
     def load_settings(self):
-        settings_path = Path('config/settings.json')
+        settings_path = Path(__file__).parent.parent / 'config' / 'settings.json'
         if settings_path.exists():
             with open(settings_path, 'r') as f:
                 self.settings = json.load(f)
@@ -40,6 +40,11 @@ class AccountManager:
     def update_proxy(self, account_id, proxy):
         c = self.conn.cursor()
         c.execute("UPDATE accounts SET proxy = ? WHERE id = ?", (proxy, account_id))
+        self.conn.commit()
+
+    def update_daily_limit(self, account_id, limit):
+        c = self.conn.cursor()
+        c.execute("UPDATE accounts SET daily_limit = ? WHERE id = ?", (limit, account_id))
         self.conn.commit()
             
     def remove_account(self, account_id):
