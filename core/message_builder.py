@@ -10,18 +10,19 @@ MESSAGES_PATH = CONFIG_DIR / 'messages.json'
 
 def load_all_messages():
     if not MESSAGES_PATH.exists():
-        return {"messages": [], "followups": []}
+        return {"messages": [], "followups": [], "followups_2": []}
         
     try:
         with open(MESSAGES_PATH, 'r', encoding='utf-8') as f:
             data = json.load(f)
             return {
                 "messages": data.get('messages', []),
-                "followups": data.get('followups', [])
+                "followups": data.get('followups', []),
+                "followups_2": data.get('followups_2', [])
             }
     except Exception as e:
         print(f"Error loading messages: {e}")
-        return {"messages": [], "followups": []}
+        return {"messages": [], "followups": [], "followups_2": []}
 
 def save_messages(data_dict):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,14 +47,29 @@ def process_spintax(text):
         text = text[:match.start()] + random.choice(choices) + text[match.end():]
     return text
 
-def get_random_message(username, is_followup=False):
+def get_random_message(username, followup_level=0):
+    """
+    followup_level:
+      0 = Initial Outreach
+      1 = Follow-up 1
+      2 = Follow-up 2
+    """
     all_msgs = load_all_messages()
-    pool = all_msgs["followups"] if is_followup else all_msgs["messages"]
     
-    if not pool:
-        # Fallback to initial messages if no follow-ups exist
-        pool = all_msgs["messages"]
+    if followup_level == 1:
+        pool = all_msgs.get("followups", [])
+    elif followup_level >= 2:
+        pool = all_msgs.get("followups_2", [])
+    else:
+        pool = all_msgs.get("messages", [])
         
+    if not pool:
+        # Fallback cascades
+        if followup_level >= 2:
+            pool = all_msgs.get("followups", [])
+        if not pool:
+            pool = all_msgs.get("messages", [])
+            
     if not pool:
         return None
         

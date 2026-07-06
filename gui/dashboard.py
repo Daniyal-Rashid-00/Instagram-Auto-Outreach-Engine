@@ -52,6 +52,11 @@ class DashboardPanel(QWidget):
         self.btn_pause.setMinimumHeight(38)
         self.btn_pause.clicked.connect(self.main_window.pause_engine)
 
+        self.btn_skip = QPushButton("⏭  Skip User")
+        self.btn_skip.setObjectName("btnSecondary")
+        self.btn_skip.setMinimumHeight(38)
+        self.btn_skip.clicked.connect(self.main_window.skip_current)
+
         self.btn_stop = QPushButton("⏹  Stop")
         self.btn_stop.setObjectName("btnDanger")
         self.btn_stop.setMinimumHeight(38)
@@ -66,6 +71,7 @@ class DashboardPanel(QWidget):
 
         ctrl_layout.addWidget(self.btn_start)
         ctrl_layout.addWidget(self.btn_pause)
+        ctrl_layout.addWidget(self.btn_skip)
         ctrl_layout.addWidget(self.btn_stop)
         ctrl_layout.addStretch()
         ctrl_layout.addWidget(self.btn_fu_toggle)
@@ -259,32 +265,34 @@ class DashboardPanel(QWidget):
             c = self.conn.cursor()
             today = date.today().isoformat()
 
-            # Total DMs sent (all time)
-            c.execute("SELECT COUNT(*) as n FROM sent_log")
-            self.kpi_total_sent._val_lbl.setText(str(c.fetchone()['n']))
+            # Total DMs sent (all time) - count Successful from historical_log
+            c.execute("SELECT COUNT(*) as n FROM historical_log WHERE status = 'Sent'")
+            total_sent = c.fetchone()['n']
+            self.kpi_total_sent._val_lbl.setText(str(total_sent))
 
             # Sent today
             c.execute(
-                "SELECT COUNT(*) as n FROM sent_log WHERE date(sent_at) = ?", (today,)
+                "SELECT COUNT(*) as n FROM historical_log WHERE status = 'Sent' AND date(timestamp) = ?", (today,)
             )
             self._lbl_sent_today.setText(str(c.fetchone()['n']))
 
-            # Success rate + Failed (from queue history)
-            c.execute("SELECT status, COUNT(*) as n FROM queue GROUP BY status")
-            counts = {row['status']: row['n'] for row in c.fetchall()}
-            sent_q   = counts.get('Sent', 0)
-            failed_q = counts.get('Failed', 0)
-            total_q  = sent_q + failed_q
-            rate = f"{int(sent_q / total_q * 100)}%" if total_q else "N/A"
+            # Success rate + Total Failed from historical_log
+            c.execute("SELECT status, COUNT(*) as n FROM historical_log WHERE status IN ('Sent', 'Failed') GROUP BY status")
+            history_counts = {row['status']: row['n'] for row in c.fetchall()}
+            success_num = history_counts.get('Sent', 0)
+            failed_num = history_counts.get('Failed', 0)
+            total_history = success_num + failed_num
+            rate = f"{int(success_num / total_history * 100)}%" if total_history else "N/A"
             self.kpi_success_rate._val_lbl.setText(rate)
-            self.kpi_total_failed._val_lbl.setText(str(failed_q))
+            self.kpi_total_failed._val_lbl.setText(str(failed_num))
 
             # In queue (Pending only, not follow-up)
-            pending = counts.get('Pending', 0)
+            c.execute("SELECT COUNT(*) as n FROM queue WHERE status = 'Pending'")
+            pending = c.fetchone()['n']
             self.kpi_in_queue._val_lbl.setText(str(pending))
 
             # Pending follow-ups
-            c.execute("SELECT COUNT(*) as n FROM followup_queue WHERE status = 'Pending'")
+            c.execute("SELECT COUNT(*) as n FROM queue WHERE status = 'Pending Followup'")
             self.kpi_pending_fu._val_lbl.setText(str(c.fetchone()['n']))
 
             # Active accounts

@@ -165,6 +165,11 @@ class MainWindow(QMainWindow):
             self.engine.stop()
             self.panel_dashboard.update_status("Stopping...")
 
+    def skip_current(self):
+        if self.engine.is_running:
+            self.engine.skip_requested = True
+            self.on_engine_log("WARN", "Skip user requested...")
+
     # --- Engine Callbacks ---
     def on_engine_log(self, type_str, msg):
         self.panel_dashboard.lbl_status.setText(f"[{type_str}] {msg[:70]}")
