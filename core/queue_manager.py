@@ -92,7 +92,25 @@ class QueueManager:
     def update_status(self, queue_id, status, error_msg=""):
         c = self.conn.cursor()
         c.execute("UPDATE queue SET status = ?, error_msg = ? WHERE id = ?", (status, error_msg, queue_id))
+        if status in ('Sent', 'Failed'):
+            try:
+                c.execute("SELECT username FROM queue WHERE id = ?", (queue_id,))
+                row = c.fetchone()
+                if row:
+                    username = row['username']
+                    c.execute(
+                        "INSERT INTO historical_log (username, status, timestamp, error_msg) VALUES (?, ?, ?, ?)",
+                        (username, status, datetime.now().isoformat(), error_msg)
+                    )
+            except Exception:
+                pass
         self.conn.commit()
+
+    def get_sent_count(self, username):
+        c = self.conn.cursor()
+        c.execute("SELECT COUNT(*) as cnt FROM sent_log WHERE username = ?", (username,))
+        row = c.fetchone()
+        return row['cnt'] if row else 0
 
     def update_username(self, queue_id, new_username):
         c = self.conn.cursor()

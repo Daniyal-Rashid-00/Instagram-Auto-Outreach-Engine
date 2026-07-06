@@ -18,6 +18,9 @@ from core.account_manager import AccountManager
 from core.queue_manager import QueueManager
 from core.message_builder import get_random_message
 
+class SkipUserException(Exception):
+    pass
+
 class DMEngine(QThread):
     log_signal = pyqtSignal(str, str)            # type, msg
     progress_signal = pyqtSignal(int, int)         # sent_count, failed_count
@@ -31,6 +34,7 @@ class DMEngine(QThread):
         super().__init__()
         self.is_running = False
         self.is_paused = False
+        self.skip_requested = False
         
         self.account_manager = AccountManager()
         self.queue_manager = QueueManager()
@@ -52,9 +56,12 @@ class DMEngine(QThread):
         # Load attachment path from messages.json (follow-up only)
         messages_path = Path(__file__).parent.parent / 'config' / 'messages.json'
         self.followup_attachment = ''
+        self.followup_2_attachment = ''
         if messages_path.exists():
             with open(messages_path, 'r', encoding='utf-8') as f:
-                self.followup_attachment = json.load(f).get('followup_attachment', '')
+                msg_data = json.load(f)
+                self.followup_attachment = msg_data.get('followup_attachment', '')
+                self.followup_2_attachment = msg_data.get('followup_2_attachment', '')
             
     def stop(self):
         self.is_running = False
@@ -72,6 +79,10 @@ class DMEngine(QThread):
         self.is_paused = False
         self.log_signal.emit("INFO", "Engine resumed")
         
+    def _check_skip(self):
+        if self.skip_requested:
+            raise SkipUserException("User skipped by request")
+
     def _random_sleep(self, min_s=None, max_s=None):
         if min_s is None: min_s = self.settings.get("delay_min", 45)
         if max_s is None: max_s = self.settings.get("delay_max", 120)
@@ -89,6 +100,8 @@ class DMEngine(QThread):
         # Non-blocking sleep for QThread
         slept = 0.0
         while slept < delay and self.is_running:
+            if self.skip_requested:
+                break
             while self.is_paused and self.is_running:
                 time.sleep(1)
             time.sleep(0.5)
@@ -120,6 +133,8 @@ class DMEngine(QThread):
             elapsed += 1.5
 
             while elapsed < delay and self.is_running:
+                if self.skip_requested:
+                    break
                 while self.is_paused and self.is_running:
                     time.sleep(1)
                     elapsed += 1
@@ -141,6 +156,8 @@ class DMEngine(QThread):
             remaining = max(0.0, delay - elapsed)
             slept = 0.0
             while slept < remaining and self.is_running:
+                if self.skip_requested:
+                    break
                 time.sleep(0.5)
                 slept += 0.5
 
@@ -267,14 +284,33 @@ class DMEngine(QThread):
                         
                     target_username = task['username']
                     task_id = task['id']
+                    
+                    # 1. Determine follow-up level based on DB sent history (outreach auto-promotion)
+                    dm_count = self.queue_manager.get_sent_count(target_username)
                     is_followup = (task.get('status') == 'Pending Followup')
                     
-                    self.log_signal.emit("INFO", f"Processing: {target_username}")
+                    if is_followup or dm_count > 0:
+                        is_followup = True
+                        if dm_count == 0:
+                            followup_level = 1
+                        else:
+                            # 1 sent DM means next is Follow-up 1 (sec level 1).
+                            # 2 or more sent DMs means next is Follow-up 2 (sec level 2).
+                            followup_level = 1 if dm_count == 1 else 2
+                    else:
+                        is_followup = False
+                        followup_level = 0
+                    
+                    self.log_signal.emit("INFO", f"Processing: {target_username} (DMs sent previously: {dm_count}, Level: {followup_level})")
                     
                     try:
+                        self.skip_requested = False
+                        self._check_skip()
+                        
                         # 1. Navigate to Target Profile
                         page.goto(f"https://www.instagram.com/{target_username}/", timeout=30000)
                         self._random_sleep(3, 6) # wait for page load fully organically
+                        self._check_skip()
                         
                         # Anti-ban check
                         ban_reason = self._check_anti_ban(page)
@@ -284,6 +320,7 @@ class DMEngine(QThread):
                         # Human simulation: scroll target profile briefly before DM
                         page.evaluate("window.scrollBy(0, 500)")
                         self._random_sleep(1, 3)
+                        self._check_skip()
                         
                         # 2. Like a random post
                         try:
@@ -295,6 +332,7 @@ class DMEngine(QThread):
                                 idx = random.randint(0, post_count - 1)
                                 posts.nth(idx).click()
                                 self._random_sleep(2, 4)
+                                self._check_skip()
                                 
                                 # Click the Like button (only if not already liked)
                                 like_btn = page.locator("svg[aria-label='Like']").first
@@ -303,11 +341,15 @@ class DMEngine(QThread):
                                     like_btn.click(force=True)
                                     self.log_signal.emit("INFO", "Liked a recent post")
                                 self._random_sleep(1, 3)
+                                self._check_skip()
                                 
                                 # Close the post modal (Escape key always works for Instagram modals)
                                 page.keyboard.press("Escape")
                                 self._random_sleep(1, 2)
-                        except Exception as e:
+                                self._check_skip()
+                        except SkipUserException as skip_e:
+                            raise skip_e
+                        except Exception:
                             pass # If they have no posts or liking fails, just skip naturally
                         
                         # 3. Click 'Message' button
@@ -320,14 +362,18 @@ class DMEngine(QThread):
                         if msg_btn.count() == 0:
                              raise Exception("Message button not found on profile (Private account, you must follow them, or Instagram hid the button)")
                              
+                        self._check_skip()
                         msg_btn.click()
                         self._random_sleep(4, 8)
+                        self._check_skip()
                         
                         # Dismiss potential "Turn on Notifications" modal if it pops up
                         not_now = page.locator("button:has-text('Not Now')").first
                         if not_now.count() > 0:
                             not_now.click()
                             self._random_sleep(1, 2)
+                        
+                        self._check_skip()
                         
                         # 5. Type and send message
                         # Wait for the chat DM interface to load
@@ -336,7 +382,7 @@ class DMEngine(QThread):
                         # There might be multiple textboxes (like search). The actual message box is typically the last visible one.
                         messagebox = page.locator("div[role='textbox']").last
                         
-                        msg = get_random_message(target_username, is_followup)
+                        msg = get_random_message(target_username, followup_level)
                         if not msg:
                              raise Exception("Message pool is empty")
                              
@@ -345,16 +391,25 @@ class DMEngine(QThread):
                         # Paste instantly instead of slow typing, as requested
                         page.keyboard.insert_text(msg)
                         self._random_sleep(1, 3)
+                        self._check_skip()
                         
                         # Actually send text message
                         page.keyboard.press("Enter")
 
                         # ── Follow-up Attachment (silent fail) ─────────────────
-                        if is_followup and self.followup_attachment:
-                            attach_path = Path(self.followup_attachment)
+                        active_attachment = ''
+                        if is_followup:
+                            if followup_level == 1:
+                                active_attachment = self.followup_attachment
+                            elif followup_level >= 2:
+                                active_attachment = self.followup_2_attachment
+
+                        if is_followup and active_attachment:
+                            attach_path = Path(active_attachment)
                             if attach_path.exists():
                                 try:
                                     self._random_sleep(1, 2)
+                                    self._check_skip()
 
                                     # Instagram DM toolbar attachment selectors (priority order)
                                     _attach_selectors = [
@@ -393,6 +448,7 @@ class DMEngine(QThread):
                                         if file_inputs.count() > 0:
                                             file_inputs.first.set_input_files(str(attach_path))
                                             self._random_sleep(2, 4)
+                                            self._check_skip()
                                             page.keyboard.press("Enter")
                                             self.log_signal.emit("INFO",
                                                 f"Attachment sent via hidden input: {attach_path.name}")
@@ -407,14 +463,17 @@ class DMEngine(QThread):
                                         file_chooser = fc_info.value
                                         file_chooser.set_files(str(attach_path))
                                     self._random_sleep(2, 4)
+                                    self._check_skip()
                                     page.keyboard.press("Enter")
                                     self.log_signal.emit("INFO", f"Attachment sent: {attach_path.name}")
+                                except SkipUserException as skip_e:
+                                    raise skip_e
                                 except Exception as attach_err:
                                     self.log_signal.emit("WARN",
                                         f"Attachment skipped for {target_username}: {attach_err}")
                             else:
                                 self.log_signal.emit("WARN",
-                                    f"Attachment file not found: {self.followup_attachment}")
+                                    f"Attachment file not found: {active_attachment}")
 
                         # Post-send restriction check — give Instagram 2s to react
                         time.sleep(2.0)
@@ -431,7 +490,7 @@ class DMEngine(QThread):
                         
                         if is_followup:
                             self.queue_manager.mark_followup_sent(target_username)
-                        
+                            
                         sent_count += 1
                         self.progress_signal.emit(sent_count, failed_count)
                         
@@ -450,7 +509,11 @@ class DMEngine(QThread):
                             self.log_signal.emit("INFO", f"Switching to account {current_account['username']}")
                             self.account_switched_signal.emit(current_account['username'])
                             context, page = self._setup_browser(p, current_account)
-                        
+                            
+                    except SkipUserException as skip_e:
+                        self.log_signal.emit("INFO", f"Skipped target {target_username}: {skip_e}")
+                        self.queue_manager.update_status(task_id, "Skipped")
+                        continue
                     except Exception as e:
                         err_str = str(e)
 
